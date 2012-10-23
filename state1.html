@@ -1,0 +1,155 @@
+<script>
+
+ 
+	var matrix= new Array(360);
+	var b68 = "0123456789_!+-/*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    var categoriaAtual=0;
+
+	var arconf = new Array(4);
+		
+	var botaoOK,botaoOKh,orienta,logo;
+
+	var ico= new Array(4);
+	
+	var ico_x = [45, 295, 185, 200];  //   3a
+	var ico_y = [280, 280, 210, 340];  // 1a  2a
+									   //   4a
+	var i,ii,j, iniX,iniY,raio,meioraio;
+	
+	var nomeCor = ["#9D0E0E","#0E3E0E",'#B98110','#143B64','#6A106A','#2A7A21','#177171','#5C5D11','#502F0E','#39155B'];
+	
+	var areaCor = [100,100,100,100];
+	var areaTipo = [0,0,0,0];
+	
+	areaSelecionada=null;
+
+function pathStr(pX,pY,r){
+ var s="";
+ s="M "+pX+" "+pY+" l "+r+" "+(-r/2)+" l "+r+" "+(r/2)+" l "+(-r)+" "+(r/2) +" Z";
+ return s;
+}
+
+// dialog ERRO
+
+$(function() { msgErro(); });
+
+function dialogErro(m){
+ $("#msgerro").empty();
+ $("#msgerro").append(m);
+ $("#dialog-message").dialog("open"); 
+}
+	
+function setMatrix(l,c,a,cat,tip,ed,hafeeds){
+ var pos= l*60+c*10;  //60 por linha e 10 por coluna  setMatrix(2,2,1,areaCor[0],areaTipo[0],10,0);
+ matrix[pos]=a;
+ matrix[pos+1]=cat;
+ matrix[pos+2]=tip;
+ matrix[pos+3]=ed;
+ matrix[pos+4]=hafeeds;
+}
+
+//=================================================================================	
+// START configuration engine
+//=================================================================================
+
+function iniciaConfiguracao(){
+		 
+	statusUser=getUserData(codUser, "status");
+	
+	 for(i=0;i<360;i++) matrix[i]=0;
+	  
+	 botaoFB.hide();
+	 logoLogin.hide();
+	 molduraLogin.hide();
+	 opentext.hide();
+	  
+	//
+	//   CONFIGURACAO
+	//
+	
+	// monta as 4 areas centrais
+	
+     arconf[0]= paper.path(pathStr(iniX,iniY,meioraio));
+	 arconf[1]= paper.path(pathStr(iniX+raio+4,iniY,meioraio));	 
+	 arconf[2]= paper.path(pathStr(iniX+meioraio+2,iniY-2-meioraio/2,meioraio));	 
+	 arconf[3]= paper.path(pathStr(iniX+meioraio+2,iniY+2+meioraio/2,meioraio));
+
+	 for(i=0;i<4;i++) arconf[i].attr({fill: "darkgrey"});
+	  
+	 for(i=0;i<4;i++) ico[i]=paper.image("images/ico_r.png",iniX+ico_x[i],ico_y[i],38,31).hide().scale(1.2);		
+	 
+	 abreConfig();
+ 
+	//=========  monta botao OKh  ======================	
+	
+	 botaoOKh_Hover = paper.image("images/botao_jogar_Hover.jpg",12,220+(10*33)+22,267,61);	 
+	 botaoOK = paper.image("images/botao_jogar_Desab.jpg",12,220+(10*33)+22,267,61); //OK desabilitado
+	 botaoOKh = paper.image("images/botao_jogar.jpg",12,220+(10*33)+22,267,61).hide();
+
+	 botaoOKh_Pressed = paper.image("images/botao_jogar_Pressed.jpg",12,220+(10*33)+22,267,61).hide();
+	 
+	 botaoOKh.bhover=botaoOKh_Hover;
+	 botaoOKh.bpressed=botaoOKh_Pressed;	
+	
+	//=========  trata botao OKh  ======================
+	
+	botaoOKh.hover(function(){ this.attr({"opacity": "0.0"}); this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); this.attr({"opacity": "1.0"}); } );
+	
+	botaoOKh.click(function(evt){
+	    this.hide(); this.bpressed.show();
+	    //var s="?cata="+areaCor[0]+"&tipoa="+areaTipo[0]+"&catb="+areaCor[1]+"&tipob="+areaTipo[1]+"&catc="+areaCor[2]+"&tipob="+areaTipo[2]+"&catd="+areaCor[3]+"&tipod="+areaTipo[3];
+	    //sphp="http://www.lindstaedt.com.br/viladigital/infogame.php?user="+codUser;
+		setMatrix(2,3,1,areaCor[0]+1,areaTipo[0]+1,1,0); //3 2
+		setMatrix(3,2,1,areaCor[1]+1,areaTipo[1]+1,1,0); //2 3
+		setMatrix(2,2,1,areaCor[2]+1,areaTipo[2]+1,1,0);
+		setMatrix(3,3,1,areaCor[3]+1,areaTipo[3]+1,1,0);
+		var mm="";
+		for(i=0;i<360;i++)  mm+=b68[matrix[i]];
+		  //mm+=String.fromCharCode(matrix[i]+33);empacota int de 2 dig (ou+) em 1 byte e 222 eh o MAX p/ um val em matrix		                                       
+	
+		var urlBase = "bdaccess.php?action=storeMatrix&user=";
+        var urlBaseComParms = urlBase.concat(codUser,"&matrix=",mm);
+        
+		$.ajax({
+			  url: urlBaseComParms,
+			  async:false,
+			  success: function() { }
+			});
+		
+		// Desmonta cenario de configuracao...
+		
+		botaoOK.hide(); 
+		botaoOKh.hide();
+		botaoOKh_Hover.hide();
+		botaoOKh_Pressed.hide();
+		 
+		for(i=0;i<4;i++) {arconf[i].hide(); ico[i].hide();}
+		
+		fechaConfig();
+
+		statusUser = 110;
+		setUserData(codUser,"status",statusUser);
+		
+		gameState=2;
+		carrega();
+		
+	  }); 
+
+	 	 
+	//=========  trata as 4 areas de selecao ================== 
+	 
+    for(ii=0;ii<4;ii++){
+	  arconf[ii].click(function(evt) {  for(j=0;j<4;j++) arconf[j].attr({"stroke": "black","stroke-width": "1"} );
+								   this.attr({"stroke": "white","stroke-width": "4","stroke-dasharray" : "."} );  areaSelecionada=this; 
+								    });
+	  arconf[ii].hover(function(){ this.animate({"fill-opacity": "0.4"}, 300); },
+	              function(){ this.animate({"fill-opacity": "1.0"}, 300); } );
+	              
+	}
+
+
+	
+  }
+
+</script>

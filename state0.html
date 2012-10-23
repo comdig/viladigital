@@ -1,0 +1,23 @@
+
+<script>
+   
+    logoLogin = paper.image("images/logo_login.png",(larguraTela/2)-103,4,207,89);
+   
+    opentext = paper.image("images/openingtext.png",(larguraTela/2)-463,110,927,248).scale(0.5);
+   
+    molduraLogin = paper.image("images/fb_conectese.jpg",(larguraTela/2)-218,(alturaTela/2),437,231);	
+
+	botaoFB = paper.image("images/botao_log_fb.jpg",(larguraTela/2)-151,(alturaTela/2)+118,302,42);	
+
+	botaoFB.click(function(evt){
+
+			fblogin();
+			
+			botaoFB.hide();
+			opentext.hide();
+			logoLogin.hide();
+			molduraLogin.hide();
+			
+			
+	});
+</script>

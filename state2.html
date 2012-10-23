@@ -1,0 +1,1737 @@
+
+<script>
+
+ var codusr;
+ var feedURL = new Array();
+ var totUrlFeeds =0;
+ var matrix = new Array(360);
+ var b68 = "0123456789_!+-/*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+ var newsVet = new Array();
+ var newsCntr;
+ var statusLiberacaoZona;
+ //var avisoFeed = new Array(36);
+
+ var modoEd=0;
+ 
+ var terreno = new Array(36);
+ var ar = new Array(36);
+ var qu = new Array(9);
+ var quBordaAmarela1 = new Array(9);
+ var quBordaAmarela2 = new Array(9);	
+ 
+ var cache_title = new Array(100);
+ var cache_desc = new Array(100);
+ var cache_date= new Array(100);
+ var cache_img = new Array(100);
+ var cache_link = new Array(100);
+ var cache_codnews = new Array(100);
+ var cache_lin = new Array(100);
+ var cache_col = new Array(100);
+ var cache_lida = new Array(100);
+ var cache_shared = new Array(100);
+ var CACHE_SIZE = 0; 
+ 
+ var controleTempoResposta = 0;
+  
+ var scrollPosition =0;
+ 
+ var offsetNews2 = 100;
+ var offsetNews3 = 208;
+ 
+ var linAtual=0;
+ var colAtual=0;
+ var qualCat, nomeCat;
+ 
+ var ctrlDialog =0;
+
+//{ for(i=0;i<360;i++) matrix[i]=b68.indexOf(d[i]); }
+function codificaB68(str){
+ retmsg=""; //alert("str="+str);
+ len=str.length; //alert(len);
+	for(i=0;i<len;i++) {
+	  if(str[i]<68){ retmsg+=b68[0]; retmsg+=b68[str[i]];}
+	  else { retmsg+=b68[1]; retmsg+=b68[str[i]-68];}
+	}		
+ return retmsg;		
+}
+ 	
+function abreProgressBar(){
+ $("#dialog-progress").dialog('open');
+}
+function atualizaProgressBar(valor){
+ //$("#progressbar" ).progressbar("option","value", valor);
+ $("#progressbar").progressbar('value', valor);
+ //$("#progressbar" ).progressbar(valor);
+}
+ 
+function achaStrImg(it,s){
+ inistr=it.search(s);
+ if(inistr>=0) { 
+	inistr=inistr-1;
+	fimstr=it.search("/>")+2;
+	if(fimstr >inistr){ 
+	   strSRC =  it.substring(inistr,fimstr);
+	   inistrsrc = strSRC.search("src");
+	    if(inistrsrc>=0) { 
+	       inistrsrc=inistrsrc+12;
+		   fimstrsrc1=strSRC.search(".jpg")+4;
+		   fimstrsrc2=strSRC.search(".png")+4;	
+		   fimstrsrc3=strSRC.search(".gif")+4;		   
+		   if(fimstrsrc1>0) return strSRC.substring(inistrsrc,fimstrsrc1);
+		   if(fimstrsrc2>0) return strSRC.substring(inistrsrc,fimstrsrc2);
+		   if(fimstrsrc3>0) return strSRC.substring(inistrsrc,fimstrsrc3);
+		}
+	 }
+   }
+ 
+ return "";
+}	
+
+function achaStr(it,s){
+ inistr=it.search(s)+s.length+1;
+ fimstr=it.search("/"+s)-1;
+ return it.substring(inistr,fimstr);
+}
+
+
+//===========================================================================
+// FEEDS e NEWS
+//===========================================================================
+
+//::::::::::::::::::::::::::::::::::::::::::::::::::::
+// funcoes GET And STORE                          ::::
+//::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+ function getNstore_twitter_feed(uF,ca,ti,lin,col,sincrono) {   
+		
+	//var parms="&usuario="+codusr+"&cat="+ca+"&tip="+ti+"&line="+lin+"&column="+col;
+	//var urlBase = "bdaccess.php?action=refreshNewsT"+parms+"&url=http://"+uF;  	
+	var urlBase = "api.twitter.com/1/statuses/user_timeline.rss?&callback=cronck&screen_name=cienciahoje&count=5";
+	alert(urlBase);
+	
+	totNewsLidas=0;
+	
+	  $.ajax({
+	   url: urlBase,
+	   dataType: 'jsonp',
+	   async:false, //false OU true
+	   error: function (d,t,e) { //var xmlString = (new XMLSerializer()).serializeToString(d);
+							  alert(d.status); alert(t); },
+	   success: function(d) { /*totNewsLidas=d;*/ //alert("1");
+							  //var xmlString = (new XMLSerializer()).serializeToString(d);
+							  //alert(xmlString);
+							  //log.warn(xmlString); 
+							  alert("OK:"+d);
+							}	
+			
+	});
+	return totNewsLidas;	
+}
+function cronck(){
+   alert ("cronck...");
+}
+//------------------------------------------------------------------------------
+ function getNstore_rss_feed(uF,ca,ti,lin,col,sincrono) {   
+		
+	var parms="&usuario="+codusr+"&cat="+ca+"&tip="+ti+"&line="+lin+"&column="+col;
+	var urlBase = "bdaccess.php?action=refreshNews"+parms+"&url=http://"+uF;  	
+	
+	totNewsLidas=0;
+	
+	  $.ajax({
+	   url: urlBase,
+	   async:sincrono, //false OU true
+	   success: function(d) { /*totNewsLidas=d;*/ //alert("1");
+							  //var xmlString = (new XMLSerializer()).serializeToString(d);
+							  //alert(xmlString);
+							  //log.warn(xmlString); 
+							}	
+	});
+	return totNewsLidas;	
+}
+function verificaTempoResposta(){
+
+  if(controleTempoResposta==100) abre_aviso("Ops!","Sistema muito lento!Tente + tarde!");
+
+}
+//............................................................................
+	
+function montaNews(lin,col){
+	
+	//controleTempoResposta=100;
+	//timeMsg("verificaTempoResposta()",8000);
+	
+    var parmsn="&user="+codusr+"&lin="+lin+"&col="+col;
+	var urlBasen = "bdaccess.php?action=retrieveNews"+parmsn;
+	
+	//recupera news do BD, para esta posicao da matriz
+	totNewsLidas=0;	
+	
+	scrollPosition =0;
+	
+	  $.ajax({
+	   url: urlBasen,
+	   async:false,
+	   success: function(d) { //var xmlString = (new XMLSerializer()).serializeToString(d);
+							  
+							  $totNews=0;                
+							  for(i=0;i<d.length;i+=4){ 
+										var $item = d[i]; 
+										//var title = $item.find('title').text();  //var secao ="#section"+nF;  $(secao+$totNews).append(title);
+										var title = achaStr($item,"title");
+										var link = achaStr($item,"link");
+										var description = achaStr($item,"desc");
+										
+										//var linkIMG = achaStrImg(description,"img");
+										var linkIMG = achaStrImg($item,"img");
+										var pubDate= achaStr($item,"date");
+
+										if($totNews<100){		
+											cache_title[$totNews]=title;		
+											cache_desc[$totNews]=description;	
+											cache_link[$totNews]=link;
+											cache_img[$totNews]=linkIMG;
+											cache_date[$totNews]=pubDate;
+											cache_codnews[$totNews]=d[i+1];
+											cache_col[$totNews]=col;
+											cache_lin[$totNews]=lin;
+											cache_lida[$totNews]=d[i+2];
+											cache_shared[$totNews]=d[i+3];
+											
+											//alert(cache_img[$totNews]);
+										}
+										else break;
+
+										  
+										$totNews++;
+															
+										}						
+							  
+							} //function success	
+	});
+	
+	CACHE_SIZE = $totNews;   
+	if($totNews==0) abre_aviso("Opa...","sem novidades por aqui..."); //dialogErro("sem noticias no momento...");
+	else{
+	 scrollPosition=0; linAtual=lin; colAtual=col;
+	 atualiza_dialogNews();
+	 abre_dialogNews();
+	 
+	}
+
+ 	//controleTempoResposta=200;	
+	
+}
+
+//............................................................................
+function avaliaNews(nota){
+}
+
+//............................................................................  
+function shareNews(codnews,linkPost){
+
+ setNewsData(codusr, codnews, "Compartilhada", 1);  //seta como Compartilhada na tabela newsUsr
+
+  pontuacao = getUserData(codusr,"pontuacao");
+  pontuacao++; pontuacao++; pontuacao++;   //pontuacao += 3; trata pontiacao como string
+  setUserData(codusr,"pontuacao",pontuacao);
+  
+  userPontos.remove();
+  userPontos = paper.print(larguraTela-144, 38, pontuacao, fonte_NeoSans, 18).attr({fill: "white"});
+
+ //postFB(titulo, descricao, linkimagem);
+ postRecomendacao(linkPost);
+
+} 
+//............................................................................  
+function checkNews(codnews,li,co){   //marca noticia como LIDA
+  
+  setNewsData(codusr, codnews, "Lida", 1);  //seta como LIDA na tabela newsUsr
+  var hoje = new Date();
+  var dia = (hoje.getDate()).toString();
+  var ano = (hoje.getFullYear()).toString();
+  var mes = (hoje.getMonth()).toString();;
+  var dataExtenso = ano + "-" + mes + "-" + dia;
+  
+  var flagLibera;
+  
+  setNewsData(codusr, codnews, "dataLeitura", dataExtenso);
+
+  incMatLeituras(li,co,1);  //incrementa contador de leituras da zona
+  
+  totLidas = getUserData(codusr,"totLidas"); totLidas++;
+  setUserData(codusr,"totLidas",totLidas);
+  
+  pontuacao = getUserData(codusr,"pontuacao");
+  pontuacao++;
+  setUserData(codusr,"pontuacao",pontuacao);
+  
+  userPontos.remove();
+  userPontos = paper.print(larguraTela-144, 38, pontuacao, fonte_NeoSans, 18).attr({fill: "white"});
+
+  // verifica se libera novo bairro e/ou evolui edificacao
+  flagLibera=false;
+  for(i=0;i<8;i++) if(totLidas==vetLiberacoes[i]) { liberaZonas(); flagLibera=true; }
+				   //cada vez q uma nova zona eh selecionada, statusLiberacaoZona--
+  
+  lidasZona = getMatLeituras(li,co);
+  if(lidasZona==vetEvolucaoEd[0]) evoluiEd(li,co,2);
+  else if(lidasZona==vetEvolucaoEd[1]) evoluiEd(li,co,3);
+
+  atualizaMatriz();  //atualiza na tabela mat 
+  
+  if((lidasZona==vetEvolucaoEd[0] || lidasZona==vetEvolucaoEd[1]) && flagLibera==false){ 
+     fecha_dialogNews();
+	 desenhaCenario_Eds();
+	 
+	 abre_aviso("Oba!!!","Vocë evoluiu uma casa!");
+	 
+	 scrollPosition=0;
+	 atualiza_dialogNews(); fecha_dialogNews();  ctrlDialog=1; // evento click do fecha_Aviso abre o dialogNews
+  } 
+  else   if((lidasZona==vetEvolucaoEd[0] || lidasZona==vetEvolucaoEd[1]) && flagLibera==true){ 
+     fecha_dialogNews();
+	 desenhaCenario_Eds();
+	 
+	 abre_aviso("Viva!!!","Vocë liberou nova zona e evoluiu uma casa!");
+	 
+	 scrollPosition=0;
+	 atualiza_dialogNews(); fecha_dialogNews();  ctrlDialog=2; // evento click do fecha_Aviso abre o dialogNews
+  } else if((lidasZona!=vetEvolucaoEd[0] && lidasZona!=vetEvolucaoEd[1]) && flagLibera==true){ 
+     fecha_dialogNews();
+	 desenhaCenario_Eds();
+	 
+	 abre_aviso("Muito bem!!!","Vocë liberou nova zona!");
+	 
+	 scrollPosition=0;
+	 atualiza_dialogNews(); fecha_dialogNews();  ctrlDialog=2; // evento click do fecha_Aviso abre o dialogNews
+  }
+  
+  
+}
+
+function liberaZonas(){
+  statusLiberacaoZona++;
+  
+  for(i=0;i<6;i++)
+   for(j=0;j<6;j++){
+    if(getMat_ativa(i,j)==0) setMat_Clicavel(i,j,1);
+   } 
+   
+   if(statusLiberacaoZona==1) desenhaTerrenos("lightgrey",1); //clicaveis
+}
+function trancaZonas(){
+  statusLiberacaoZona--;
+  //alert("tranca  statusLiberacaoZona="+statusLiberacaoZona);
+  if(statusLiberacaoZona<1){
+	  for(i=0;i<6;i++)
+	   for(j=0;j<6;j++){
+		if(getMat_ativa(i,j)==0) setMat_Clicavel(i,j,0);
+	   } 
+   }
+   if(statusLiberacaoZona==0) {
+       desenhaTerrenos("grey",0); //clicaveis
+	   fechaConfig();
+   }
+}
+//............................................................................
+
+function getFeedsURLs(nCat,nTipo){
+  var nc=String(nCat);
+  var nt=String(nTipo); 
+  var urlBase = "bdaccess.php?action=retrieveFeeds&cat=";
+  var urlBaseComParms = urlBase.concat(nc,"&tipo=",nt);
+
+	$.ajax({
+	  url: urlBaseComParms,
+	  async:false,
+	  success: function(d) { 
+								totUrlFeeds = d.length; 
+								var i;
+								for(i=0;i<totUrlFeeds;i++){ feedURL[i]=d[i];}
+	  }
+	}); 
+
+ }
+ 
+//............................................................................
+// ATUALIZACAO DAS FEEDS
+//............................................................................
+
+function atualizaFeedsBackground(){
+
+  var cat,tip, newsLidas; 
+ 
+  for(i=0;i<6;i++)
+   for(j=0;j<6;j++) {
+
+     if(getMat_ativa(i,j)==1){
+	   cat=getMat_cat(i,j);  tip=getMat_tipo(i,j);
+	   getFeedsURLs(cat,tip);
+	   for(k=0;k<totUrlFeeds;k++){     
+		   newsLidas=getNstore_rss_feed(feedURL[k],cat,tip,i,j,true);  //true = async = fast = background
+	   }
+	 }
+   } 
+   
+  //timeMsg("atualizaFeedsBackground()",300000); //5 min = 5*60= 300*1000 =300000  | 10min= 600000
+}
+
+function atualizaFeeds(){
+
+  var cat,tip, newsLidas, totfeedsaux; 
+  var contprog=1;
+  totfeedsaux=0;
+  
+  abreProgressBar();
+  
+  //conta total de feeds a serem lidas...
+  for(i=0;i<6;i++)
+   for(j=0;j<6;j++) 
+       if(getMat_ativa(i,j)==1){
+	   cat=getMat_cat(i,j);  tip=getMat_tipo(i,j);
+	   getFeedsURLs(cat,tip);
+	   if(totUrlFeeds==0) {alert("no feeds");}
+	   else {
+	        totfeedsaux +=totUrlFeeds;
+			setMat_haFeeds(i,j,1);
+			//avisoFeed[i*6+j].show();   
+	   }
+
+	 }
+   	 
+  for(i=0;i<6;i++)
+   for(j=0;j<6;j++) {
+
+     if(getMat_ativa(i,j)==1){
+	   cat=getMat_cat(i,j);  tip=getMat_tipo(i,j); //alert("i:"+i+"j:"+j+"cat:"+cat+"tip:"+tip);
+	   getFeedsURLs(cat,tip);
+	   for(k=0;k<totUrlFeeds;k++){     
+		   if(k==0) newsLidas=getNstore_rss_feed(feedURL[k],cat,tip,i,j,false);  //false = sync = slow
+		   else newsLidas=getNstore_rss_feed(feedURL[k],cat,tip,i,j,true);  //true = async = fast = background
+		   contprog++;
+		   atualizaProgressBar(contprog*100/totfeedsaux);
+	   }
+	 }
+   }
+   
+   timeMsg("atualizaFeedsBackground()",300000); //5 min = 5*60= 300*1000
+   
+   $("#dialog-progress").dialog('close');
+} 
+
+//=====================================================================
+// funcoes de manipulacao da matriz
+//=====================================================================
+
+ function setMatrix(l,c,ativa,cat,tip,ed,hafeeds){
+  var pos= l*60+c*10;  //60 por linha e 10 por coluna
+  matrix[pos]=ativa;
+  matrix[pos+1]=cat;
+  matrix[pos+2]=tip;
+  matrix[pos+3]=ed;   //1,2 ou 3
+  matrix[pos+4]=hafeeds;  
+ }
+ function getMat_ativa(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos];
+ }
+ function getMat_cat(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos+1];
+ }
+ function getMat_tipo(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos+2];
+ } 
+ function getMat_ed(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos+3];
+ }
+  function setMat_ed(l,c,valor){
+  var pos= l*60+c*10;
+  matrix[pos+3]=valor;
+ }
+ function getMat_haFeeds(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos+4];
+ } 
+ function setMat_haFeeds(l,c,valor){
+  var pos= l*60+c*10;
+  matrix[pos+4]=valor;
+ } 
+ 
+ //habilita uma zona a ser escolhida
+ 
+  function getMat_Clicavel(l,c){
+  var pos= l*60+c*10;
+  return matrix[pos+9];
+ } 
+ function setMat_Clicavel(l,c,valor){
+  var pos= l*60+c*10;
+  matrix[pos+9]=valor;
+ } 
+  function incMatClicavel(l,c,valInc){
+  var valor = getMatClicavel(l,c);
+  setMatClicavel(l,c,valor+valInc);
+ }
+  function decMatClicavel(l,c,valInc){
+  var valor = getMatClicavel(l,c);
+  setMatClicavel(l,c,valor-valInc);
+ } 
+ 
+ // controle no numero de leituras de uma zona
+ 
+ function setMatLeituras(l,c,valor){  //maior valor 21.372.330
+  var pos= l*60+c*10;
+  //recebe valor em decimal e transforma em base 68
+   var restos = [0,0,0,0,0]; var cntrest=0;
+   matrix[pos+5]=0; matrix[pos+6]=0; matrix[pos+7]=0; matrix[pos+8]=0;
+   divisao = Math.floor(valor/68); restos[cntrest] = Math.floor(valor % 68);
+    if(valor>67){
+	   while(valor >= 68){valor=divisao; divisao=Math.floor(valor/68); cntrest++; restos[cntrest]=valor%68; }
+	   cntrest++; restos[cntrest]=divisao%68;
+	}
+	//log.debug(restos[0]+" "+restos[1]+" "+restos[2]);
+   for(i=0;i<=cntrest;i++) matrix[pos+5+i]=restos[i];
+ }
+ function getMatLeituras(l,c){
+  var pos= l*60+c*10;
+  //transforma da base 68 em base decimal e retorna
+  return matrix[pos+5]+(matrix[pos+6]*68)+(matrix[pos+7]*(68*68))+(matrix[pos+8]*(68*68*68));
+ }
+ function incMatLeituras(l,c,valInc){
+  var valor = getMatLeituras(l,c);
+  setMatLeituras(l,c,valor+valInc);
+ }
+ 
+// armazenamento & recuperacao da matriz 
+ 
+function carregaMatriz(){ 
+  //carrega matriz cenario do usuario
+  codusr = codUser;  
+  var urlBB = "bdaccess.php?action=retrieveMatrix&user=" + codusr;  
+  for(i=0;i<360;i++) matrix[i]=0;
+  
+	$.ajax({
+	  url: urlBB,
+	  async:false,
+	  success: function(d) {
+	  for(i=0;i<360;i++) matrix[i]=b68.indexOf(d[i]); }
+	});  
+}
+
+function atualizaMatriz(){
+	var mm="";	
+	for(i=0;i<360;i++) { mm+=b68[matrix[i]]; }
+
+	var urlBase = "bdaccess.php?action=updateMatrix&user="+codusr+"&matrix=";
+	var urlBaseComParms = urlBase.concat(mm);
+	
+	$.ajax({
+		  url: urlBaseComParms,
+		  async:false,
+		  success: function(d) { /* alert("foi:"+d); */}
+		});
+}
+
+//=====================================================================
+// DIALOGs
+//=====================================================================	
+
+//#EBAA12    cor laranja dialogo
+
+$(function() {
+$("#dialog_feeds1").dialog({
+  height: 400,
+  width: 600,
+  modal: false,
+  autoOpen: false,
+  open: function(){
+	$("#accordion1").accordion({ autoHeight: true });
+  }
+});
+});
+  
+$(function() {
+	$( "#dialog:ui-dialog" ).dialog( "destroy" );
+
+	$( "#dialog-progress" ).dialog({
+		height: 90,
+		width:300,
+		modal: true,
+		resizable: false,
+		autoOpen: false,
+		open: function(){
+         $("#progressbar").progressbar({value: 1});
+      }
+	});
+});
+ 
+	
+$(function() { msgErro(); });
+
+$(function() {
+	$( "#progressbar" ).progressbar({
+		value: 0
+	});
+});
+	
+function dialogErro(m){
+ $("#msgerro").empty();
+ $("#msgerro").append(m);
+ $("#dialog-message").dialog("open"); 
+}
+function msgErro() {
+$( "#dialog:ui-dialog" ).dialog( "destroy" );
+
+	$( "#dialog-message" ).dialog({
+		height: 150,  
+		width: 300,   
+		resizable: false,
+		autoOpen: false,		
+		modal: true
+	});
+}	
+
+function fechaDialog(nF){
+ $("#accordion" +nF).accordion().dialog('close');
+}	 
+function abreDialog(nF){
+ $("#dialog_feeds"+nF).dialog('open');
+}
+
+
+ 	//=====================================================================
+	// variaveis para DESENHO
+	//=====================================================================	
+ 
+    var categoriaAtual=0;
+	var balao,anim;
+	
+	//var cat = new Array(10);
+	
+	//var botaoOK,botaoOKh,orienta,s1,s2,logo;
+	
+	var ico_x = [500, 800, 650, 650];
+	var ico_y = [216, 216, 140, 290];
+	
+	var i,ii,j, iniX,iniY,raio,meioraio;
+	
+	var nomeCor = ["red","green",'orange','blue','magenta','#00FF00','#00FFFF','#FFFF00','#804000','#8000FF'];
+	
+	var areaCor = [100,100,100,100];
+	var areaTipo = [0,0,0,0];
+	var sphp = "";
+	
+	var LARG= 192;
+	var ALT=98;
+	var LARG_RUA=60;
+	var ALT_RUA=40;
+	
+	areaSelecionada=null;
+
+	var cntr=0;
+	var pIni = new posic(larguraTela/2,140); // 740,22
+	var pMat = new posic (0,0);  //coluna linha 
+	var pTela; //coluna linha
+
+	var vetLiberacoes = new Array(8);
+	var vetEvolucaoEd = new Array(2);	
+	
+	// carrega configuracao :::::::::::::::::::::::::::::::::::::::::::::::::
+	
+	function carregaConfiguracao(){
+
+		var urlBB = "bdaccess.php?action=retrieveConfig";
+		
+		$.ajax({
+		  url: urlBB,
+		  async:false,
+		  success: function(d) {
+		                         for(i=0;i<8;i++) vetLiberacoes[i]=d[i]; 
+								 vetEvolucaoEd[0]=d[8]; 
+								 vetEvolucaoEd[1]=d[9];
+							   }
+		});  	
+	
+	}
+	
+	function evoluiEd(linha,coluna,nivel){
+	  setMat_ed(linha,coluna,nivel);
+	}
+	
+	
+	
+	//=====================================================================
+	// funcoes auxiliares de DESENHO
+	//=====================================================================	
+	
+
+	function animaMsg()
+	{
+	// var start = function () {    
+					// this.ox = this.attr("x");         
+					// this.oy = this.attr("y");         
+					// this.animate({r: 70, opacity: 0.9}, 500, ">");     
+				// },
+				// move = function (dx, dy) {
+				// this.attr({x: this.ox + dx, y: this.oy + dy});     
+				// },
+				// up = function () {
+				// this.animate({r: 50, opacity: .5}, 500, ">");
+				// };
+
+		// balao.drag(move, start, up);
+		
+       //balao.animate(anim);
+	}
+	
+	function pathStr(pX,pY,divisor){  //losango
+	  var s="";
+	  //s="M "+pX+" "+pY+" l "+r+" "+(-r/2)+" l "+r+" "+(r/2)+" l "+(-r)+" "+(r/2) +" Z";
+	  s="M "+pX+" "+pY+" l "+ LARG/divisor +" " + ALT/divisor + " l "+(-LARG/divisor) + " " + ALT/divisor + " l "+(-LARG/divisor) + " " + -(ALT/divisor )+" Z";
+	 return s;
+	}
+	
+	function posic(px,py){  //objeto posicao
+	this.x=px;
+	this.y=py;
+	}
+	
+	function mapeia(posMat,posIni){
+	  var auxX=0;
+	  var auxY=0;
+	  
+	  for(i=0;i<posMat.x;i++){ //anda colunas...
+	    auxX+= (LARG/2);
+		auxY+= (ALT/2);
+	  }
+      if(posMat.x==2||posMat.x==3) { auxX+=LARG_RUA; auxY+= ALT_RUA;}
+	  if(posMat.x>=4) { auxX+=2*LARG_RUA; auxY+= 2*ALT_RUA;}
+	  
+	  for(i=0;i<posMat.y;i++){ //anda colunas...
+	    auxX-= (LARG/2);
+		auxY+= (ALT/2);
+	  }
+      if(posMat.y==2||posMat.y==3) { auxX-=LARG_RUA; auxY+= ALT_RUA;}
+	  if(posMat.y>=4) { auxX-=2*LARG_RUA; auxY+= 2*ALT_RUA;}
+	  
+	  auxX+=posIni.x;  auxY+=posIni.y; 
+	  return new posic(auxX,auxY);
+	}	
+	
+	//=====================================================================
+	// funcoes de DESENHO
+	//=====================================================================
+	
+	function desenhaTerrenos(corTerreno,clic){
+		 
+		cntr=0;
+		 for(lin=0;lin<6;lin++)
+		  for(col=0;col<6;col++){
+			pMat.x=col; pMat.y=lin;
+			pTela=mapeia(pMat,pIni);
+			
+			if(clic==0){
+				ar[cntr]= paper.path(pathStr(pTela.x,pTela.y,2));
+				ar[cntr].attr({"fill": corTerreno,"stroke": "lightgrey","stroke-width": "0.5"});
+				ar[cntr].counter=cntr;
+			}
+			//else  ar[cntr].attr({"fill": corTerreno,"fill-opacity": "0.2"});
+			else  if(getMat_Clicavel(lin,col)==1) { ar[cntr]= paper.path(pathStr(pTela.x,pTela.y,2));
+													ar[cntr].attr({"fill": corTerreno,"stroke-width": "0","fill-opacity": "0.15"});		
+												    ar[cntr].counter=cntr;
+												  }
+		   if(clic==1){			
+			 if(getMat_Clicavel(lin,col)==1){
+			   
+			   ar[cntr].hover(function() {this.g = this.glow({color: "yellow", width: 5}); },function() { this.g.remove(); });		  
+			   ar[cntr].click(function(evt){ 	
+											 //this.attr({"fill": white});
+											 
+										     linSelec=Math.floor(this.counter/6);
+											 colSelec=this.counter-(linSelec*6);
+
+											 areaSelecionada=this; 
+											 fecha_aviso();
+											 abreConfig();
+										   });
+			 }
+			}
+		   if(clic==2){			
+			 if(getMat_Clicavel(lin,col)==1){
+			   
+			   ar[cntr].hover(function() {this.g = this.glow({color: "lightgreen", width: 7}); },function() { this.g.remove(); });		  
+			   ar[cntr].click(function(evt){ 	
+											 //this.attr({"fill": white});
+										     linSelec=Math.floor(this.counter/6);
+											 colSelec=this.counter-(linSelec*6);
+
+										   });
+			 }
+			}
+			
+			
+			cntr++;
+		} //for col
+		
+	} //fim desenhaTerrenos
+	
+	//===================================================================== Cenario_Chao
+	function desenhaCenario_Chao(){
+	 // QUADRAS
+	 for(lin=0;lin<3;lin++)
+	  for(col=0;col<3;col++){
+	    pMat.x=col*2; pMat.y=lin*2;
+		pTela=mapeia(pMat,pIni);
+	    quBordaAmarela1[cntr]= paper.path("M"+(pTela.x-(LARG/0.88)+1)+","+(pTela.y+(ALT/0.88)-12)+"l"+ (LARG/0.88+1) +"," + (ALT/0.88));		
+		quBordaAmarela1[cntr].attr({fill: "#EBAA12","stroke": "#EBAA12", "stroke-width": "3"});
+	    quBordaAmarela2[cntr]= paper.path("M"+(pTela.x)+","+(pTela.y+2*ALT+15)+"l"+ (LARG/0.88) +"," + (-ALT/0.88));		
+		quBordaAmarela2[cntr].attr({fill: "#7F590F","stroke": "#7F590F", "stroke-width": "3"});
+		
+	    qu[cntr]= paper.path(pathStr(pTela.x,pTela.y-14,0.88));
+		qu[cntr].attr({fill: "darkgrey"});
+		cntr++;
+      } 
+	 //TERRENOS
+	 desenhaTerrenos("grey",0); //0 = nao clicaveis
+
+	}
+	
+	//===================================================================== Cenario_Controles	
+	function desenhaCenario_Controles(){
+	  
+	  pontos = paper.image("images/moldura_pontuacao.jpg",larguraTela-152,16,60,60);
+	  
+	  userTxt.hide();
+	  userTxt2.hide();
+	  
+	  var tt = "Vila de";
+	  
+	  userTxt3 = paper.print(85, 30, tt, fonte_NeoSans, 16).attr({fill: "white"}); //"Vila de"
+	  userTxt4 = paper.print(85, 60, nomeUser, fonte_NeoSans, 20).attr({fill: "white"});	  
+	  
+	  pontuacao = getUserData(codusr,"pontuacao");
+	  userPontos = paper.print(larguraTela-144, 38, pontuacao, fonte_NeoSans, 18).attr({fill: "white"});
+	  
+	  //botaoAjuda = paper.image("images/barra_ajuda.jpg",(larguraTela/2)+171,16,78,57);
+	  botaoAjuda.show();
+	  botaoAjuda.toFront();
+	  
+	  botaoEd.show();
+	  botaoEd.toFront();
+	  
+	}
+	
+	//===================================================================== Cenario_Extras	
+	function desenhaCenario_Extras(){
+	  
+	  // pMat.x=5; pMat.y=0; pTela=mapeia(pMat,pIni);
+	  // veg1 = paper.image("images/tree2.png",pTela.x-10,pTela.y,43,89).scale(0.9); 
+	  // veg2 = paper.image("images/tree2.png",pTela.x-40,pTela.y+12,43,89).scale(1.1); 
+	  // veg3 = paper.image("images/tree2.png",pTela.x-57,pTela.y+10,43,89).scale(0.9); 
+	  // veg4 = paper.image("images/tree2.png",pTela.x-100,pTela.y-20,43,89).scale(1.0); 
+	  // veg5 = paper.image("images/tree2.png",pTela.x-60,pTela.y+12,43,89).scale(0.9); 
+	  // veg6 = paper.image("images/tree2.png",pTela.x-87,pTela.y-30,43,89).scale(0.7); 
+	  // pMat.x=3; pMat.y=2; pTela=mapeia(pMat,pIni);
+	  // veg7 = paper.image("images/cogu.png",pTela.x+30,pTela.y,42,42).scale(0.9); 
+	  
+	  // anim = Raphael.animation({x: -100, y: -250}, 20000);
+      // balao= paper.image("images/balao.png",1300,800,156,193);	  
+	  // timeMsg("animaMsg()",3000);
+	  
+	  //pMat.x=5; pMat.y=3; pTela=mapeia(pMat,pIni);
+	  //cloud = paper.image("images/cloud1.png",pTela.x,pTela.y,266,107).opacity(0.4);
+	  //cloud.attr({"fill-opacity": "0.6"});
+	  
+	  //atualizaFeeds();
+	  
+	}	
+	//..................................................................................
+	function getEd(l,c){
+	 qualCat = getMat_cat(l,c);
+	 qualNivel = getMat_ed(l,c); 
+	 var retstr="images/c"+qualNivel;
+	 switch(qualCat){
+		 case 1: retstr += "_ensino.png"; break;
+		 case 2: retstr += "_ciencia.png"; break;
+		 case 3: retstr += "_tecnologia.png"; break;
+		 case 4: retstr += "_esporte.png"; break;
+		 case 5: retstr += "_turismo.png"; break;
+		 case 6: retstr += "_meioambiente.png"; break;
+		 case 7: retstr += "_economia.png"; break;
+		 case 8: retstr += "_cultura.png"; break;
+		 case 9: retstr += "_politica.png"; break;
+		 case 10: retstr += "_entretenimento.png"; break;
+	 }
+	 return retstr;
+	}
+	
+	//===================================================================== Cenario_Eds	
+	function desenhaCenario_Eds(){
+	  
+	  for(d=0;d<6;d++){
+	    linha=d;
+	    for(coluna=0;coluna<=d;coluna++){
+		
+		pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);
+		
+		    if(getMat_ativa(linha,coluna)==0){ //terreno NAO ATIVO
+			  	  pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);				  
+			}
+			else{ //terreno ATIVO
+			    pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);
+				
+				//busca edificacao da zona
+				nome_ed = getEd(linha,coluna); 
+	            terreno[linha*6+coluna]= paper.image(nome_ed,pTela.x-LARG/2,pTela.y-35,LARG,130); //152
+				terreno[linha*6+coluna].lin=linha;
+				terreno[linha*6+coluna].col=coluna;
+			}
+		  linha--;
+		} //for coluna
+	  } //for d
+	  
+	  for(coluna=1;coluna<6;coluna++){
+	    for(linha=5;linha>(5-coluna);linha--){
+		    if(getMat_ativa(linha,coluna)==0){ //terreno NAO ATIVO
+			  	  pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);				  
+		}
+			else{ //terreno ATIVO
+			    pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);
+				
+				//busca edificacao da zona
+				nome_ed = getEd(linha,coluna); //log.debug(nome_ed);
+	            terreno[linha*6+coluna]= paper.image(nome_ed,pTela.x-LARG/2,pTela.y-35,LARG,130);
+				terreno[linha*6+coluna].lin=linha;
+				terreno[linha*6+coluna].col=coluna;
+			} //else
+		} //for coluna
+	  } //for d	  
+	 
+     //transparencias para selecao de casas ---------------------------------------	
+	
+	  for(d=0;d<6;d++){
+	    linha=d;
+	    for(coluna=0;coluna<=d;coluna++){		
+		      if(getMat_ativa(linha,coluna)==1){ //terreno ATIVO
+					pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);  
+				  
+					ar[linha*6+coluna]= paper.path(pathStr((pTela.x),(pTela.y),2));
+					ar[linha*6+coluna].lin=linha;
+					ar[linha*6+coluna].col=coluna;				
+					ar[linha*6+coluna].attr({"fill": "lightgrey","stroke-width": "0","fill-opacity": "0.0"});
+					ar[linha*6+coluna].click(function(evt) {montaNews(this.lin,this.col);});
+					ar[linha*6+coluna].hover(function() {this.g = this.glow({color: "red", width: 5}); },function() { this.g.remove(); });				  
+			  }
+				else {ar[linha*6+coluna].lin=linha; ar[linha*6+coluna].col=coluna;}
+		  linha--;
+		} //for coluna
+	  } //for d	  
+	 
+	  for(coluna=1;coluna<6;coluna++){
+	    for(linha=5;linha>(5-coluna);linha--){
+		   if(getMat_ativa(linha,coluna)==1){ //terreno ATIVO
+		   	    pMat.x=linha; pMat.y=coluna; pTela=mapeia(pMat,pIni);
+				
+				ar[linha*6+coluna]= paper.path(pathStr((pTela.x),(pTela.y),2));
+				ar[linha*6+coluna].lin=linha;
+				ar[linha*6+coluna].col=coluna;				
+				ar[linha*6+coluna].attr({"fill": "lightgrey","stroke-width": "0","fill-opacity": "0.0"});
+			    ar[linha*6+coluna].click(function(evt){montaNews(this.lin,this.col);});
+			    ar[linha*6+coluna].hover(function() {this.g = this.glow({color: "red", width: 5}); },function() { this.g.remove(); });						   
+		   
+		   }
+		   else {ar[linha*6+coluna].lin=linha; ar[linha*6+coluna].col=coluna;}
+		} //for coluna
+	  } //for coluna	 	 
+	 
+	  desenhaCenario_Extras();
+	  refreshInferior();
+}
+	
+function limpaCenarios(){
+
+   backg = paper.image("images/background.jpg",0,0,larguraTela,alturaTela);
+}	
+function refreshCenarios(){
+   
+}	
+
+function refreshSetas(){
+   setaCima.attr({x:larguraTela/2-75 , y:90});
+   setaCima.toFront(); setaCima.show();
+   
+   setaBaixo.attr({x:larguraTela/2-78 , y:alturaTela-105});   
+   setaBaixo.toFront(); setaBaixo.show();
+
+   setaEsq.attr({x:2, y:alturaTela/2-40});      
+   setaEsq.toFront(); setaEsq.show();
+   
+   setaDir.attr({x:larguraTela-70, y:alturaTela/2-50});    
+   setaDir.toFront(); setaDir.show();  
+}
+function desenhaSetas(){
+	 setaCima = paper.image("images/seta_cima.png",larguraTela/2-75,90,157,77).scale(0.7); 	
+	 setaCima.attr({"opacity": "0.0"});
+	 setaCima.hover(function(){ this.animate({"opacity": "1.0"},300); },
+	              function(){  this.animate({"opacity": "0.0"},300); } );
+	 setaCima.click(function(evt){
+		 limpaCenarios(); pIni.y+=50;  desenhaCenario_Chao();  desenhaCenario_Controles(); desenhaCenario_Eds();
+		 refreshInferior(); /*refreshSuperior();*/
+		 moldura.toFront(); userImg.toFront();
+		 botaoSair_Hover.toFront(); botaoSair.toFront(); botaoSair_Pressed.toFront(); logo.toFront();
+		 botaoAjuda_Hover.toFront(); botaoAjuda.toFront();
+		 refreshSetas();  });					  
+
+	 setaBaixo = paper.image("images/seta_baixo.png",larguraTela/2-78,alturaTela-105,157,68).scale(0.7);
+     setaBaixo.attr({"opacity": "0.0"}); 	 
+	 setaBaixo.hover(function(){ this.animate({"opacity": "1.0"},300); },
+	              function(){  this.animate({"opacity": "0.0"},300); } );
+	 setaBaixo.click(function(evt){
+		 limpaCenarios(); pIni.y-=50;  desenhaCenario_Chao();  desenhaCenario_Controles(); desenhaCenario_Eds();
+		 refreshInferior(); /*refreshSuperior();*/
+		 moldura.toFront(); userImg.toFront();
+		 botaoSair_Hover.toFront(); botaoSair.toFront(); botaoSair_Pressed.toFront(); logo.toFront();
+		 botaoAjuda_Hover.toFront(); botaoAjuda.toFront();
+		 refreshSetas();  });				  
+					  
+	 setaEsq = paper.image("images/seta_esq.png",2,alturaTela/2-40,73,145).scale(0.6); 	
+     setaEsq.attr({"opacity": "0.0"});	 
+	 setaEsq.hover(function(){ this.animate({"opacity": "1.0"},300); },
+	              function(){  this.animate({"opacity": "0.0"},300); } );
+	 setaEsq.click(function(evt){
+	    limpaCenarios(); pIni.x+=50;  desenhaCenario_Chao();  desenhaCenario_Controles(); desenhaCenario_Eds();
+	    refreshInferior(); /*refreshSuperior();*/
+		moldura.toFront(); userImg.toFront(); 
+		botaoSair_Hover.toFront(); botaoSair.toFront(); botaoSair_Pressed.toFront(); logo.toFront();
+        botaoAjuda_Hover.toFront(); botaoAjuda.toFront();		
+		refreshSetas();  });
+		
+	 setaDir = paper.image("images/seta_dir.png",larguraTela-70,alturaTela/2-50,67,158).scale(0.6);
+     setaDir.attr({"opacity": "0.0"}); 	 
+	 setaDir.hover(function(){ this.animate({"opacity": "1.0"},300); },
+	              function(){  this.animate({"opacity": "0.0"},300); } );
+	 setaDir.click(function(evt){
+	    limpaCenarios(); pIni.x-=50;  desenhaCenario_Chao();  desenhaCenario_Controles(); desenhaCenario_Eds();
+	    refreshInferior(); /*refreshSuperior();*/
+		moldura.toFront(); userImg.toFront();
+		botaoSair_Hover.toFront(); botaoSair.toFront(); botaoSair_Pressed.toFront(); logo.toFront();
+		botaoAjuda_Hover.toFront(); botaoAjuda.toFront();
+		refreshSetas();  });			  
+				  
+
+}
+
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+// DIALOG  NEWS  
+// = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
+
+
+function achaEspaco(t){
+ for(i=46;i>1;i--) if(t.charAt(i)==" ") return i;
+}
+
+
+function atualiza_dialogNews(){
+
+ if(scrollPosition<0) scrollPosition=0;
+  if(scrollPosition<CACHE_SIZE){  //LIMITES DA CACHE !!!
+  
+   qualCat=getMat_cat(linAtual,colAtual);
+   switch(qualCat){
+	   case 1: nomeCat="Ensino"; break;
+	   case 2: nomeCat="Ciencia"; break;
+	   case 3: nomeCat="Tecnologia"; break;
+	   case 4: nomeCat="Esportes"; break;   	   
+	   case 5: nomeCat="Turismo"; break;
+	   case 6: nomeCat="Meio Ambiente"; break;
+	   case 7: nomeCat="Economia"; break;
+	   case 8: nomeCat="Cultura"; break;
+	   case 9: nomeCat="Politica"; break;
+	   case 10: nomeCat="Entretenimento";  
+
+   }
+   titCat.remove();
+   titCat = paper.print((larguraTela/2)-500+290, (alturaTela/2)-300+153, nomeCat, fonte_NeoSans, 20).attr({fill: "#4A2E06"}); 
+
+  
+  // NEWS 1 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+  
+  areaNews1.link=cache_link[scrollPosition];    lido1.link=cache_link[scrollPosition];
+  //fig1News.remove();
+  if(cache_img[scrollPosition].length<12) fig1News.attr({src:"images/dialogLeitura_fig.png",x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194,width:90,height:60}); //fig1News = paper.image("images/dialogLeitura_fig.png",(larguraTela/2)-500+180,(alturaTela/2)-300+200,145,76);
+  else{
+    //fig1News = paper.image(cache_img[scrollPosition],(larguraTela/2)-500+180,(alturaTela/2)-300+200,145,76);
+	fig1News.attr({src:"http://"+cache_img[scrollPosition],x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194,width:90,height:60});
+	fig1News.toFront(); fig1News.show();
+  }
+  
+  posicEspaco=achaEspaco(cache_title[scrollPosition]);
+  tit1News.remove(); tit12News.remove();
+  tit1News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200, cache_title[scrollPosition].substr(0,posicEspaco), fonte_NeoSans, 18).attr({fill: "white"});
+  tit12News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225, cache_title[scrollPosition].substr(posicEspaco+1,90-posicEspaco), fonte_NeoSans, 18).attr({fill: "white"}); 
+  subTit1News.remove();
+  subTit1News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245, cache_desc[scrollPosition].substr(0,60), fonte_NeoSans, 16).attr({fill: "#DAB215"});
+  areaNews1.toFront();
+  
+  lido1.codnews = cache_codnews[scrollPosition]; share1.tit = cache_title[scrollPosition];
+  lido1.lin = cache_lin[scrollPosition];         share1.desc = cache_desc[scrollPosition];
+  lido1.col = cache_col[scrollPosition];         share1.img = cache_img[scrollPosition];
+  lido1.lido = (cache_lida[scrollPosition]==1)?true:false;  share1.shared = (cache_shared[scrollPosition]==1)?true:false;  
+  lido1.posnews = scrollPosition;                share1.posnews = scrollPosition;  share1.link=cache_link[scrollPosition];
+  
+  if(lido1.lido) lido1.attr({src:"images/botao_lida.png"});
+  else lido1.attr({src:"images/botao_ler.png"});
+  
+  if(share1.shared) share1.attr({src:"images/botao_shared.png"});
+  else share1.attr({src:"images/botao_share.png"});
+  /*     
+  if(getNewsData(codusr, lido1.codnews, "Lida")>0) { //news ja foi lida...
+     lido1.lido=true; 
+	 lido1.attr({src:"images/botao_lida.png"});
+  }
+  else {
+     lido1.lido=false; 
+	 lido1.attr({src:"images/botao_ler.png"});
+  }
+  if(getNewsData(codusr, lido1.codnews, "Compartilhada")>0) { //news ja foi compartilhada...
+     share1.shared=true; 
+	 share1.attr({src:"images/botao_shared.png"});
+  }
+  else {
+     share1.shared=false; 
+	 share1.attr({src:"images/botao_share.png"});
+  }  
+ */
+  // NEWS 2 :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::: 
+ 
+  areaNews2.link=cache_link[scrollPosition+1];  lido2.link=cache_link[scrollPosition+1];
+  //fig2News.remove();
+  if(cache_img[scrollPosition+1].length<12) fig2News.attr({src:"images/dialogLeitura_fig.png",x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194+offsetNews2,width:90,height:60}); //paper.image("images/dialogLeitura_fig.png",(larguraTela/2)-500+180,(alturaTela/2)-300+200+offsetNews2,145,76);
+  else{
+    fig2News.attr({src:"http://"+cache_img[scrollPosition+1],x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194+offsetNews2,width:90,height:60});
+	fig2News.toFront(); fig2News.show();
+	}
+
+  posicEspaco=achaEspaco(cache_title[scrollPosition+1]);  
+  tit2News.remove(); tit22News.remove();
+  tit2News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200+offsetNews2, cache_title[scrollPosition+1].substr(0,posicEspaco), fonte_NeoSans, 18).attr({fill: "white"});
+  tit22News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225+offsetNews2, cache_title[scrollPosition+1].substr(posicEspaco+1,90-posicEspaco), fonte_NeoSans, 18).attr({fill: "white"}); 
+  subTit2News.remove();
+  subTit2News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245+offsetNews2, cache_desc[scrollPosition+1].substr(0,60), fonte_NeoSans, 16).attr({fill: "#DAB215"});
+  areaNews2.toFront();
+  lido2.codnews = cache_codnews[scrollPosition+1]; share2.tit = cache_title[scrollPosition+1];
+  lido2.lin = cache_lin[scrollPosition+1];         share2.desc = cache_desc[scrollPosition+1];
+  lido2.col = cache_col[scrollPosition+1];         share2.img = cache_img[scrollPosition+1];
+  lido2.lido = (cache_lida[scrollPosition+1]==1)?true:false;  share2.shared = (cache_shared[scrollPosition+1]==1)?true:false;  
+  lido2.posnews = scrollPosition+1;                  share2.posnews = scrollPosition+1; share2.link=cache_link[scrollPosition+1];
+
+  if(lido2.lido) lido2.attr({src:"images/botao_lida.png"});
+  else lido2.attr({src:"images/botao_ler.png"});
+  
+  if(share2.shared) share2.attr({src:"images/botao_shared.png"});
+  else share2.attr({src:"images/botao_share.png"});
+  
+  /*
+  if(getNewsData(codusr, lido2.codnews, "Lida")>0) { //news ja foi lida...
+     lido2.lido=true; 
+	 lido2.attr({src:"images/botao_lida.png"});
+  }
+  else {
+     lido2.lido=false; 
+	 lido2.attr({src:"images/botao_ler.png"});
+  }
+  if(getNewsData(codusr, lido2.codnews, "Compartilhada")>0) { //news ja foi compartilhada...
+     share2.shared=true; 
+	 share2.attr({src:"images/botao_shared.png"});
+  }
+  else {
+     share2.shared=false; 
+	 share2.attr({src:"images/botao_share.png"});
+  }   
+ */ 
+  
+  // NEWS 3 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+  
+  areaNews3.link=cache_link[scrollPosition+2];  lido3.link=cache_link[scrollPosition+2];
+  //fig3News.remove();
+  if(cache_img[scrollPosition+2].length<12) fig3News.attr({src:"images/dialogLeitura_fig.png",x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194+offsetNews3,width:90,height:60});
+  else{
+    fig3News.attr({src:"http://"+cache_img[scrollPosition+2],x:(larguraTela/2)-500+170,y:(alturaTela/2)-300+194+offsetNews3,width:90,height:60});
+	fig3News.toFront(); fig3News.show();
+	}
+
+  posicEspaco=achaEspaco(cache_title[scrollPosition+2]);    
+  tit3News.remove(); tit32News.remove();
+  tit3News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200+offsetNews3, cache_title[scrollPosition+2].substr(0,posicEspaco), fonte_NeoSans, 18).attr({fill: "white"});
+  tit32News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225+offsetNews3, cache_title[scrollPosition+2].substr(posicEspaco+1,90-posicEspaco), fonte_NeoSans, 18).attr({fill: "white"}); 
+  subTit3News.remove();
+  subTit3News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245+offsetNews3, cache_desc[scrollPosition+2].substr(0,60), fonte_NeoSans, 16).attr({fill: "#DAB215"});
+  areaNews3.toFront(); 
+  lido3.codnews = cache_codnews[scrollPosition+2]; share3.tit = cache_title[scrollPosition+2];
+  lido3.lin = cache_lin[scrollPosition+2];         share3.desc = cache_desc[scrollPosition+2];
+  lido3.col = cache_col[scrollPosition+2];         share3.img = cache_img[scrollPosition+2];
+  lido3.lido = (cache_lida[scrollPosition+2]==1)?true:false;  share3.shared = (cache_shared[scrollPosition+2]==1)?true:false;  
+  lido3.posnews = scrollPosition+2;                  share3.posnews = scrollPosition+2;  share3.link=cache_link[scrollPosition+2];
+  
+  if(lido3.lido) lido3.attr({src:"images/botao_lida.png"});
+  else lido3.attr({src:"images/botao_ler.png"});
+  
+  if(share3.shared) share3.attr({src:"images/botao_shared.png"});
+  else share3.attr({src:"images/botao_share.png"});
+  
+/*   
+  if(getNewsData(codusr, lido3.codnews, "Lida")>0) { //news ja foi lida...
+     lido3.lido=true; 
+	 lido3.attr({src:"images/botao_lida.png"});
+  }
+  else {
+     lido3.lido=false; 
+	 lido3.attr({src:"images/botao_ler.png"});
+  }
+  if(getNewsData(codusr, lido3.codnews, "Compartilhada")>0) { //news ja foi compartilhada...
+     share3.shared=true; 
+	 share3.attr({src:"images/botao_shared.png"});
+  }
+  else {
+     share3.shared=false; 
+	 share3.attr({src:"images/botao_share.png"});
+  } 
+ */ 
+  
+  
+ }
+}
+
+//
+// MONTA DIALOG NEWS
+//
+
+function monta_dialogNews(){
+ 
+  molduraNews = paper.image("images/dialogLeitura_frame.png",(larguraTela/2)-500,(alturaTela/2)-300,1000,600);
+
+  //          ^  
+  //  SCROLL  |
+  //          v
+  
+   titCat = paper.print((larguraTela/2)-500+290, (alturaTela/2)-300+153, "categoria", fonte_NeoSans, 20).attr({fill: "#4A2E06"}); 
+ 
+   scrollRect = paper.rect((larguraTela/2)+500-185,(alturaTela/2)-300+184,33,302,4);
+   scrollRect.attr({fill:"grey",opacity:"0.3"});
+ 
+   linIniScroll=(alturaTela/2)-300+190;  alturaTot=((alturaTela/2)+120) - linIniScroll;
+
+   scrollNews = paper.image("images/dialogLeitura_scroll.png",(larguraTela/2)+500-182,linIniScroll,27,55);
+   scrollNews.fator=0.1;   
+
+   scrollNews.drag(function(dx,dy){ //if(((this.attr("y")+dy)>=linIniScroll) ...
+									if((this.attr("y")>=linIniScroll) && (this.attr("y")<=(alturaTot+linIniScroll)))
+									{ 
+									   if(((this.oy+dy)>=linIniScroll) && ((this.oy+dy)<=(alturaTot+linIniScroll)))
+									     this.attr({x: this.ox, y: this.oy+dy});  
+										 
+										 posAtual=scrollPosition; scrollPosition= Math.floor((this.attr("y")-linIniScroll)*this.fator); 
+										 if(scrollPosition<0) scrollPosition=0;
+										 else if(scrollPosition>CACHE_SIZE) scrollPosition=CACHE_SIZE; //LIMITES DO CACHE!!!
+										 
+										 //if(posAtual != scrollPosition)atualiza_dialogNews();
+									 }
+                                   else if(this.attr("y")<linIniScroll) this.attr({x: this.ox, y:linIniScroll}); 
+								        else if(this.attr("y")>(alturaTot+linIniScroll)) this.attr({x: this.ox, y:(alturaTot+linIniScroll)});
+								  },
+	/*START*/	 function(){this.ox=this.attr("x"); this.oy=this.attr("y"); this.animate({opacity:0.5},40,">");},
+	/*UP*/		 function(){ this.animate({opacity:1.0},10,">"); timeMsg("atualiza_dialogNews()",30);  }
+				 );
+ 
+ 
+   // news 1 .............................................................................
+ 
+   fig1News = paper.image("images/dialogLeitura_fig.png",(larguraTela/2)-500+180,(alturaTela/2)-300+200,145,76);
+   tit1News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+   tit12News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+   subTit1News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245, "abcdefghijk", fonte_NeoSans, 16).attr({fill: "#DAB215"});
+
+   share1 = paper.image("images/botao_share.png",(larguraTela/2)+500-298,(alturaTela/2)-300+190,49,75);
+   share1.shared=false;
+   share1.posnews=-1;
+
+	share1.hover(function(){ if((share1.shared)==false) this.attr({src:"images/botao_share_Hover.png"}); },
+				  function(){ if((share1.shared)==false) this.attr({src:"images/botao_share.png"});} );
+	share1.click(function(evt){
+				if((share1.shared)==false){
+					this.attr({src:"images/botao_share_Pressed.png"});	
+					//shareNews(this.codnews, this.tit, this.desc, this.img);
+					shareNews(this.codnews,this.link);
+					this.attr({src:"images/botao_shared.png"});
+					share1.shared=true;
+					cache_shared[this.posnews]=1;
+			    }
+	}); 
+
+   lido1  = paper.image("images/botao_ler.png",(larguraTela/2)+500-245,(alturaTela/2)-300+190,49,74);
+   lido1.lido=false;    lido1.posnews= -1;
+
+	lido1.hover(function(){ if((lido1.lido)==false) this.attr({src:"images/botao_ler_Hover.png"}); },
+				  function(){ if((lido1.lido)==false) this.attr({src:"images/botao_ler.png"});} );
+	lido1.click(function(evt){
+			if((lido1.lido)==false){
+					this.attr({src:"images/botao_ler_Pressed.png"});
+					this.attr({src:"images/botao_lida.png"});					
+					checkNews(this.codnews,this.lin,this.col);
+
+					lido1.lido=true;
+					cache_lida[this.posnews]=1;
+			 }	
+			 window.open(lido1.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700");
+	}); 
+ 
+  // news 2 .............................................................................
+ 
+ fig2News = paper.image("images/dialogLeitura_fig.png",(larguraTela/2)-500+180,(alturaTela/2)-300+200+offsetNews2,145,76);
+ tit2News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200+offsetNews2, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+ tit22News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225+offsetNews2, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+ subTit2News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245+offsetNews2, "abcdefghijk", fonte_NeoSans, 16).attr({fill: "#DAB215"});
+	
+ share2 = paper.image("images/botao_share.png",(larguraTela/2)+500-298,(alturaTela/2)-300+190+offsetNews2,49,75);
+ share2.shared=false;
+ share2.posnews=-1;
+
+	share2.hover(function(){ if((share2.shared)==false) this.attr({src:"images/botao_share_Hover.png"}); },
+				  function(){ if((share2.shared)==false) this.attr({src:"images/botao_share.png"});} );
+	share2.click(function(evt){
+				if((share2.shared)==false){
+					this.attr({src:"images/botao_share_Pressed.png"});	
+					//shareNews(this.codnews,this.tit, this.desc, this.img);
+					shareNews(this.codnews,this.link);
+					this.attr({src:"images/botao_shared.png"});
+					share2.shared=true;
+					cache_shared[this.posnews]=1;
+			    }
+	});
+ 
+ lido2  = paper.image("images/botao_ler.png",(larguraTela/2)+500-245,(alturaTela/2)-300+190+offsetNews2,49,74);
+ lido2.lido=false;    share2.posnews=-1;
+
+	lido2.hover(function(){ if((lido2.lido)==false) this.attr({src:"images/botao_ler_Hover.png"}); },
+				  function(){ if((lido2.lido)==false) this.attr({src:"images/botao_ler.png"});} );
+	lido2.click(function(evt){
+			if((lido2.lido)==false){
+					this.attr({src:"images/botao_ler_Pressed.png"});
+					this.attr({src:"images/botao_lida.png"});					
+					checkNews(this.codnews,this.lin,this.col);
+										
+					lido2.lido=true;
+					cache_lida[this.posnews]=1;
+			 }	
+			 window.open(lido2.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700");
+	}); 
+ 
+  // news 3 .............................................................................
+ 
+ fig3News = paper.image("images/dialogLeitura_fig.png",(larguraTela/2)-500+180,(alturaTela/2)-300+200+offsetNews3,145,76);
+ tit3News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+200+offsetNews3, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+ tit32News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+225+offsetNews3, "titulo", fonte_NeoSans, 18).attr({fill: "white"});
+ subTit3News = paper.print((larguraTela/2)-500+270, (alturaTela/2)-300+245+offsetNews3, "abcdefghijk", fonte_NeoSans, 16).attr({fill: "#DAB215"});
+	
+ share3 = paper.image("images/botao_share.png",(larguraTela/2)+500-298,(alturaTela/2)-300+190+offsetNews3,49,75);
+ share3.shared=false;    share3.posnews=-1;
+ 
+	share3.hover(function(){ if((share3.shared)==false) this.attr({src:"images/botao_share_Hover.png"}); },
+				  function(){ if((share3.shared)==false) this.attr({src:"images/botao_share.png"});} );
+	share3.click(function(evt){
+				if((share3.shared)==false){
+					this.attr({src:"images/botao_share_Pressed.png"});	
+					//shareNews(this.codnews,this.tit, this.desc, this.img);
+					shareNews(this.codnews,this.link);
+					this.attr({src:"images/botao_shared.png"});
+					share3.shared=true;
+					cache_shared[this.posnews]=1;
+			    }
+	});
+ 
+
+ lido3  = paper.image("images/botao_ler.png",(larguraTela/2)+500-245,(alturaTela/2)-300+190+offsetNews3,49,74);
+ lido3.lido=false;     lido3.posnews=-1;
+ 
+	lido3.hover(function(){ if((lido3.lido)==false) this.attr({src:"images/botao_ler_Hover.png"}); },
+				  function(){ if((lido3.lido)==false) this.attr({src:"images/botao_ler.png"});} );
+	lido3.click(function(evt){
+			if((lido3.lido)==false){
+					this.attr({src:"images/botao_ler_Pressed.png"});
+					this.attr({src:"images/botao_lida.png"});					
+					checkNews(this.codnews,this.lin,this.col);
+
+					lido3.lido=true;
+					cache_lida[this.posnews]=1;
+			 }	
+			 window.open(lido3.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700");
+	}); 
+ 
+    //  AREAS .............................................................................
+ 
+   	 areaNews1 = paper.rect((larguraTela/2)-500+267, (alturaTela/2)-300+189,430,75,3);
+     areaNews1.link="";	 
+	 areaNews1.attr({fill: "lightgrey", stroke:"#FFFFFF",opacity:"0.0"});
+	 areaNews1.hover(function(){ this.attr({"opacity": "0.3"});},
+				     function(){ this.attr({"opacity": "0.0"});} );	 
+	 areaNews1.click(function(evt) { window.open(this.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700"); });
+     
+	 
+	 
+	 areaNews2 = paper.rect((larguraTela/2)-500+267, (alturaTela/2)-300+189+offsetNews2,430,75,3); 
+     areaNews2.link="";		 
+	 areaNews2.attr({fill: "lightgrey", stroke:"#FFFFFF",opacity:"0.0"});
+	 areaNews2.hover(function(){ this.attr({"opacity": "0.3"});},
+				     function(){ this.attr({"opacity": "0.0"});} );	 
+	 areaNews2.click(function(evt) { window.open(this.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700");  });
+	 
+	  
+	 
+	 areaNews3 = paper.rect((larguraTela/2)-500+267, (alturaTela/2)-300+189+offsetNews3,430,75,3);
+	 areaNews3.link="";	
+	 areaNews3.attr({fill: "lightgrey", stroke:"#FFFFFF",opacity:"0.0"});
+	 areaNews3.hover(function(){ this.attr({"opacity": "0.3"});},
+				     function(){ this.attr({"opacity": "0.0"});} );	 
+	 areaNews3.click(function(evt) { window.open(this.link,"Noticia","scrollbars=1,resizable=1,height=450,width=700");   });
+	 
+  	 xNews = paper.rect((larguraTela/2)+500-166,(alturaTela/2)-197,15,15);
+	 xNews.attr({fill: "#FFFFFF", stroke:"#FFFFFF",opacity:"0.0"});
+	 xNews.click(function(evt) {  fecha_dialogNews(); });
+
+ 
+}
+
+function fecha_dialogNews(){
+ xNews.hide();
+ titCat.hide();
+ molduraNews.hide();
+ scrollRect.hide();
+ scrollNews.hide();
+ 
+ fig1News.hide();
+ tit1News.hide();
+ tit12News.hide();
+ subTit1News.hide();
+ //share1_Pressed.hide()
+ //share1_Hover.hide();
+ share1.hide();
+ //lido1_Hover.hide() 
+ lido1.hide();
+ 
+ fig2News.hide();
+ tit2News.hide();
+ tit22News.hide();
+ subTit2News.hide();
+ //share2_Pressed.hide()
+ //share2_Hover.hide();
+ share2.hide();
+ //lido2_Hover.hide() 
+ lido2.hide();
+ 
+ fig3News.hide();
+ tit3News.hide();
+ tit32News.hide();
+ subTit3News.hide();
+ //share3_Pressed.hide()
+ //share3_Hover.hide();
+ share3.hide();
+ //lido3_Hover.hide() 
+ lido3.hide();
+ 
+ areaNews1.hide();
+ areaNews2.hide();
+ areaNews3.hide(); 
+}
+
+function abre_dialogNews(){
+ 
+ 
+ scrollNews.fator=(CACHE_SIZE/alturaTot);
+ scrollPosition =0;
+ scrollNews.attr({x:(larguraTela/2)+500-182,y:(alturaTela/2)-300+190});
+ 
+ molduraNews.show();
+ titCat.show();
+ scrollRect.show();
+ scrollNews.show();
+ 
+ fig1News.show();
+ tit1News.show();
+ tit12News.show();
+ subTit1News.show();
+ //share1_Pressed.show(); 
+ //share1_Hover.show();
+ share1.show();
+ //lido1_Hover.show(); 
+ lido1.show();
+ 
+ fig2News.show();
+ tit2News.show();
+ tit22News.show();
+ subTit2News.show();
+ //share2_Pressed.show(); 
+ //share2_Hover.show();
+ share2.show();
+ //lido2_Hover.show(); 
+ lido2.show();
+ 
+ fig3News.show();
+ tit3News.show();
+ tit32News.show();
+ subTit3News.show();
+ //share3_Pressed.show(); 
+ //share3_Hover.show();
+ share3.show();
+ //lido3_Hover.show(); 
+ lido3.show();
+ 
+ areaNews1.show();
+ areaNews2.show();
+ areaNews3.show(); 
+ 
+ xNews.show();
+ 
+ molduraNews.toFront();
+ titCat.toFront();
+ scrollRect.toFront();
+ scrollNews.toFront();
+ 
+ fig1News.toFront();
+ tit1News.toFront();
+ tit12News.toFront();
+ subTit1News.toFront();
+ //share1_Pressed.toFront(); 
+ //share1_Hover.toFront();
+ share1.toFront();
+ //lido1_Hover.toFront();
+ lido1.toFront();
+ 
+ fig2News.toFront();
+ tit2News.toFront();
+ tit22News.toFront();
+ subTit2News.toFront();
+ //share2_Pressed.toFront(); 
+ //share2_Hover.toFront();
+ share2.toFront();
+ //lido2_Hover.toFront();
+ lido2.toFront();
+ 
+ fig3News.toFront();
+ tit3News.toFront();
+ tit32News.toFront();
+ subTit3News.toFront();
+ //share3_Pressed.toFront(); 
+ //share3_Hover.toFront();
+ share3.toFront();
+ //lido3_Hover.toFront();
+ lido3.toFront();
+ 
+ areaNews1.toFront();
+ areaNews2.toFront();
+ areaNews3.toFront(); 
+ 
+ xNews.toFront();
+}
+
+function abre_aviso(textoTitulo,textoAviso){
+
+ titAviso.remove();  
+ titAviso = paper.print((larguraTela/2)-170+20, (alturaTela/2)-100+30, textoTitulo, fonte_NeoSans, 18).attr({fill: "white"});
+
+ txtAviso.remove();
+ txtAviso = paper.print((larguraTela/2)-170+40, (alturaTela/2)-100+80, textoAviso, fonte_NeoSans, 16).attr({fill: "white"});
+ 
+ molduraAviso.show();  molduraAviso.toFront();
+ xAviso.show();  xAviso.toFront();
+ titAviso.show();  titAviso.toFront();
+ txtAviso.show();  txtAviso.toFront();
+}
+
+function fecha_aviso(){
+ xAviso.hide();
+ molduraAviso.hide();
+ 
+ titAviso.hide();
+ txtAviso.hide();
+}
+
+function monta_aviso(){
+
+     molduraAviso = paper.image("images/molduraAviso.png",(larguraTela/2)-170,(alturaTela/2)-100,339,221);
+  
+     titAviso = paper.print((larguraTela/2)-170+20, (alturaTela/2)-100+30, "Aviso!", fonte_NeoSans, 18).attr({fill: "white"});
+
+	 txtAviso = paper.print((larguraTela/2)-170+40, (alturaTela/2)-100+80, "...", fonte_NeoSans, 16).attr({fill: "white"});
+	 
+  	 xAviso = paper.rect((larguraTela/2)+132,(alturaTela/2)-70,15,15);
+	 xAviso.attr({fill: "#FFFFFF", stroke:"#FFFFFF",opacity:"0.0"});  
+	 xAviso.click(function(evt) {  
+	     fecha_aviso(); 
+		 if(ctrlDialog==1){ abre_dialogNews(); ctrlDialog=0;}
+		 if(ctrlDialog==2){ ctrlDialog=0;}		 
+	 });
+	 
+	 fecha_aviso();
+}
+
+function liberaCliqueSelecao(){
+ 
+  for(i=0;i<6;i++)
+   for(j=0;j<6;j++){
+    if(getMat_ativa(i,j)==1) setMat_Clicavel(i,j,1);
+   } 
+   
+   desenhaTerrenos("lightgrey",2); //clicaveis
+}
+
+function montaEd(){
+
+	 botaoEd = paper.image("images/barra_editar.jpg",(larguraTela/2)+93,15,78,59);
+
+	 botaoEd.hover(function(){ if(modoEd==0) this.attr({src:"images/barra_editar_Hover.jpg"}); },
+	              function(){  if(modoEd==0) this.attr({src:"images/barra_editar.jpg"}); } );
+	 botaoEd.click(function(evt){
+            this.attr({src:"images/barra_editar_ON.jpg"});
+			modoEd=1;  //fase de selecao
+			liberaCliqueSelecao();
+			opCopia.show(); opCopia.toFront();
+			opMove.show(); opMove.toFront(); 
+			opDel.show(); opDel.toFront();
+			opEsc.show(); opEsc.toFront();
+			
+	});
+
+  	 opCopia = paper.rect((larguraTela/2)+100,24,15,22);
+	 opCopia.attr({fill: "#22FF22", stroke:"#22FF22",opacity:"0.0"});  
+	 opCopia.click(function(evt) {  
+	     modeEd=10; 
+		 //if(ctrlDialog==1){ abre_dialogNews(); ctrlDialog=0;}
+		 //if(ctrlDialog==2){ ctrlDialog=0;}*/		 
+	 });
+  	 opMove = paper.rect((larguraTela/2)+117,24,15,22);
+	 opMove.attr({fill: "#FF3322", stroke:"#FF3322",opacity:"0.0"});  
+	 opMove.click(function(evt) {  
+	     modeEd=11;
+		 //if(ctrlDialog==1){ abre_dialogNews(); ctrlDialog=0;}
+		 //if(ctrlDialog==2){ ctrlDialog=0;}*/		 
+	 });	 
+  	 opDel = paper.rect((larguraTela/2)+134,24,15,22);
+	 opDel.attr({fill: "#443322", stroke:"#443322",opacity:"0.0"});  
+	 opDel.click(function(evt) {  
+	     modoEd=12;
+		 //if(ctrlDialog==1){ abre_dialogNews(); ctrlDialog=0;}
+		 //if(ctrlDialog==2){ ctrlDialog=0;}*/		 
+	 });
+  	 opEsc = paper.rect((larguraTela/2)+151,24,15,22);
+	 opEsc.attr({fill: "#4433FF", stroke:"#4433FF",opacity:"0.0"});  
+	 opEsc.click(function(evt) {  
+	     modeEd=13;
+		 //if(ctrlDialog==1){ abre_dialogNews(); ctrlDialog=0;}
+		 //if(ctrlDialog==2){ ctrlDialog=0;}*/		 
+	 });	 
+}
+
+
+//=================================================================================	
+// START engine
+//=================================================================================
+	
+function iniciaJogo(){
+
+	 //inicializa variaveis
+	 for(i=0;i<360;i++) matrix[i]=0;
+	 statusLiberacaoZona=0;
+	 areaSelecionada=null;
+	 
+	 montaEd();
+
+	 //carrega configuracao de jogo
+	 carregaConfiguracao();
+	
+	 botaoFB.hide();
+	 logoLogin.hide();
+	 molduraLogin.hide();
+     opentext.hide();
+			  
+	 carregaMatriz();
+	
+	 desenhaCenario_Chao(); 	 
+	 desenhaCenario_Controles(); 	 
+	 desenhaInferior();
+	 desenhaSetas(); 
+	 
+	 timeMsg("monta_aviso()",500);
+	 	 
+	 monta_dialogNews(); 
+	 fecha_dialogNews();
+	 	 
+	 refreshSetas();
+
+	 timeMsg("desenhaCenario_Eds()",50);   //wait for carregaMatriz to be completed...(ajax call)
+											//desenhaCenario_Eds chama tb a desenhaExtras()
+	 timeMsg("atualizaFeeds()",200);									
+
+}
+ 
+</script>
+ 
+<style>	
+	//.table { height: 210px; }
+	.ui-progressbar-value { background-image: url(images/pbar-ani.gif); }
+	
+	input.text { font-size: 95%; margin-bottom:2px; width:95%; padding: .2em; }
+	fieldset { font-size: 95%; padding:2; border:1; border-radius: 8px; margin-top:10px; text-align:right; }
+	
+	.ui-dialog { background: #EBAA12; }
+	//.ui-dialog-titlebar { display:none;}
+
+	.ui-widget { font-family: Trebuchet MS, Tahoma, Verdana, Arial, sans-serif; font-size: 12px; }
+	
+	//.ui-dialog-buttonpane { text-align: left; border-width: 0px 0 0 0; background-image: none; margin: .1em 10 0 0; padding: .1em .1em .1em .1em; }
+	//.ui-dialog-buttonpane button { margin: .1em .1em .1em 0; cursor: pointer; }
+	//.ui-dialog .ui-state-error { font-size: 75%; padding: .3em; }
+	//.validateTips { font-size: 75%; border: 1px solid transparent; padding: 0.1em;  }
+</style>
+ 
+<div id="dialog_feeds1" title="Noticias">
+  <div id="accordion1">
+	<h3><a href="#"><div id="section10"></div></a></h3>
+	<div id="feedContent10">
+	</div>
+	<h3><a href="#"><div id="section11"></div></a></h3>
+	<div id="feedContent11"> 
+	</div>
+	<h3><a href="#"><div id="section12"></div></a></h3>
+	<div id="feedContent12">
+	</div>
+	<h3><a href="#"><div id="section13"></div></a></h3>
+	<div id="feedContent13">
+	</div>
+	<h3><a href="#"><div id="section14"></div></a></h3>
+	<div id="feedContent14">
+	</div>
+	<h3><a href="#"><div id="section15"></div></a></h3>
+	<div id="feedContent15">
+	</div>
+	<h3><a href="#"><div id="section16"></div></a></h3>
+	<div id="feedContent16">
+	</div>
+	<h3><a href="#"><div id="section17"></div></a></h3>
+	<div id="feedContent17">
+	</div>
+	<h3><a href="#"><div id="section18"></div></a></h3>
+	<div id="feedContent18">
+	</div>
+	<h3><a href="#"><div id="section19"></div></a></h3>
+	<div id="feedContent19">
+	</div>
+  </div>  
+</div>   
+
+
+<div id="dialog-progress" title="Aguarde. Carregando feeds...">
+<div id="progressbar" />
+</div>

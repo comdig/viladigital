@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:fb="http://ogp.me/ns/fb#">   <!-- xmlns:fb="https://www.facebook.com/2008/fbml"> -->
+<head prefix="og: http://ogp.me/ns# viladigital: 
+                  http://ogp.me/ns/apps/viladigital#">
+  <title>a vila digital infogame</title>
+  <meta property="og:title" content="Vila Digital infogame"/>
+  <meta property="og:image" content="http://viladigital.comdig.info/images/logo.png"/>
+  <meta property="og:url" content="http://viladigital.comdig.info"/>
+  <meta property="og:site_name" content="viladigital"/>
+  <meta property="fb:app_id" content="192034184255923"> 
+  
+  <meta property="og:description" content="Leia e construa sua cidade."/>
+  
+  <link rel="stylesheet" type="text/css" href="styles.css"   /> 
+  <link rel="stylesheet" type="text/css" href="development-bundle/themes/base/jquery.ui.all.css" /> 
+
+  <script type="text/javascript" src="jquery-1.4.2.js"></script>  
+  <script type="text/javascript" src="jquery-ui-1.8.5.custom.min.js"></script> 
+  <script src="raphael-min.js"></script>
+  <script src="Neo_Sans_Std_400.font.js"></script> 
+  <script src="acessoBD.js"></script> 
+  
+   <script type="text/javascript" src="blackbird.js"></script>
+  
+  <link rel="icon" type="image/icon" href="favicon.ico">
+</head>
+ 
+<body >
+<div id="fb-root"></div>
+ 
+<script>
+//para sinalizar eventos de redimensionamento da tela
+var flagTela = false;  
+var temporizador = new Date();
+var clockInicial = temporizador.getTime();
+
+var gameState=0;
+var urlBaseCarga="";
+
+var imagemUser = "";
+var nomeUser = "";
+
+var codUser=0;
+var codMat=0;
+var statusUser=0;
+
+var catr = new Array(10);
+var catb = new Array(10);
+var catn = new Array(10);
+var catt = new Array(10);
+
+var config, xConfig;
+var linSelec,colSelec;
+
+
+/* STATUS USER
+   100:  logado	e SEM cidade configurada		110: logado COM cidade configurada
+   -100: nao logado e SEM cidade configurada 	-110:NAO logado mas COM cidade configurada
+*/
+
+var userImg,userTxt,userTxt2,userPontos;
+var fonteNeoSans;
+
+var mapaCats = new Array(10);
+
+
+
+function postLike(){
+   // FB.api('/192034184255923/likes','post',,function(response) {});	
+   $.ajax({
+      type: "POST",
+      url: "https://www.facebook.com/plugins/like/connect"
+   });
+}
+
+
+function postFB(tit, des, linkimg){
+   FB.api('/me/feed',
+          'post', { description: "A Vila Digital é um jogo social desenvolvido pelo curso de bacharelado em Comunicação Digital da Unisinos.", name: tit , caption: des, link: "http://www.facebook.com/aviladigital", picture: linkimg },
+           function(response) {  //message: tit
+                if(!response) {  alert("sem resposta do face... verificar se postou..."); }
+	            if(response.error){  alert("ops, problemas ao postar..."); }
+	  //else alert('POST ID:' + response.id);
+	});
+	
+	
+}
+
+
+
+function postRecomendacao(linkPostNews)
+  {    
+    //alert(linkPostNews);
+      FB.api(
+        '/me/viladigital:recommend',
+        'post',
+        { article: linkPostNews },
+        function(response) {
+           if (!response || response.error) {
+              alert('Recommend action is currently avaliable only for admins.');
+           } else {
+              //alert('Recomendacao funcionou! ID da acao: ' + response.id);
+           }
+        });
+	
+ }
+  
+function login(){
+
+   FB.api('/me', function(response) { 
+
+      //alert('OK! Voce está logado, '+response.name+" "+ response.id + " "+ response.username + " "+ response.link+ " "+ response.gender + " "+ response.locale);
+	 
+	  imagemUser = "http://graph.facebook.com/"+String(response.id)+"/picture" ; 
+	  nomeUser = String(response.name);
+	  
+	    var urlBase = "bdaccess.php?action=registerFB&user=";
+        var urlBaseComParms = urlBase.concat(response.username,"&id=",response.id,"&gender=",response.gender,"&loc=",response.locale,"&link=",response.link,"&name=",response.name);
+		
+		$.ajax({
+			  url: urlBaseComParms,
+			  async:false,
+			  success: function(d) { statusUser = d[0]; codUser = d[1]; codMat = d[2];}
+			});
+		
+		
+		desenhaSuperior();
+		
+		if(statusUser == -1) {  //usuario ja estava cadastrado
+		  if(codMat>=1) {  gameState=2; //e com cidade ja configurada	
+						   setUserData(codUser,"status",110); 
+						   statusUser=110;
+          }		  
+     	  else 	{ gameState=1;  
+		          setUserData(codUser,"status",100); //ja cadastrado mas SEM cidade
+				  statusUser=100;
+		  }
+		}
+		else { gameState=1; setUserData(codUser,"status",100); statusUser=100; } //NAO estava cadastrado e SEM cidade
+	 
+	 carrega();
+   });
+}
+function logout(){
+   //alert('OK! Voce está deslogado!');
+}
+
+function greet(){
+   FB.api('/me', function(response) {
+      //alert('Olá, '+response.name+"!");
+   });
+}
+
+window.fbAsyncInit = function() {
+	FB.init({appId: '192034184255923',
+			 channelURL: '//viladigital.comdig.info',
+			 status: true,
+			 cookie: true,
+			 xfbml: true});
+FB.Event.subscribe('auth.login', function(response) {
+	login();
+});
+FB.Event.subscribe('auth.logout', function(response) {
+   logout();
+});
+FB.getLoginStatus(function(response) {
+   if (response.session) { 
+	  greet();
+   }
+});	
+		 
+};
+
+(function() {
+  var e = document.createElement('script'); e.async = true;
+  e.src = document.location.protocol +
+	'//connect.facebook.net/pt_BR/all.js';
+  document.getElementById('fb-root').appendChild(e);
+}());
+
+function fblogin(){
+	FB.getLoginStatus(function(response) { //alert("x");
+	   if (response.status === 'connected') {  login(); }	   
+	});
+
+	FB.login(function (response){ 	  
+	 },{perms:'email,user_birthday,user_hometown,user_location,status_update,publish_stream'});
+
+}
+
+//..........................................................	
+// funcoes auxiliares comuns (a configuracao e jogo)
+//..........................................................
+
+function timeMsg(func,tempo){
+	var t=setTimeout(func,tempo);
+}
+
+function desenhaUser(){
+     moldura = paper.image("images/moldura.png",12,16,58,58);
+	 userImg = paper.image(imagemUser,16,20,50,49);
+	 
+	 userTxt = paper.print(90, 36, "Bem vind@", fonte_NeoSans, 16).attr({fill: "white"});
+	 userTxt2 = paper.print(90, 56, nomeUser, fonte_NeoSans, 16).attr({fill: "white"});
+}
+function refreshSuperior(){	
+    back_Cima.toFront();
+	logo.toFront();
+	botaoSair.toFront();
+	botaoPerfil.toFront();
+	botaoSocial.toFront();
+	botaoCat.toFront();
+	botaoAjuda.toFront();
+	moldura.toFront();
+	userImg.toFront();
+	userTxt3.toFront();
+	userTxt4.toFront();
+	pontuacao.toFront(); 
+	userPontos.toFront(); 
+}
+function desenhaSuperior(){
+	 back_Cima = paper.image("images/back_cima.png",0,0,larguraTela,110);
+	 logo = paper.image("images/barra_topo.png",(larguraTela/2)-250,4,499,94);
+	 
+	 botaoSair_Hover = paper.image("images/botao_sair_Hover.jpg",larguraTela-72,16,59,59);	
+	 botaoSair = paper.image("images/botao_sair.jpg",larguraTela-72,16,59,59);	 
+	 botaoSair_Pressed = paper.image("images/botao_sair_Pressed.jpg",larguraTela-72,16,59,59).hide();	
+
+	 botaoSair.bhover=botaoSair_Hover;
+	 botaoSair.bpressed=botaoSair_Pressed;
+	 
+	 botaoPerfil_Hover = paper.image("images/barra_perfil_Hover.jpg",(larguraTela/2)-247,16,78,57);		
+	 botaoPerfil_Hover.attr({"opacity": "0.0"});	
+	 botaoPerfil = paper.image("images/barra_perfil.jpg",(larguraTela/2)-247,16,78,57);
+	 botaoPerfil.attr({"opacity": "0.0"});	
+	 botaoPerfil_Pressed = paper.image("images/barra_perfil_Pressed.jpg",(larguraTela/2)-247,16,78,57).hide();	
+
+	 botaoPerfil.bhover=botaoPerfil_Hover;
+	 botaoPerfil.bpressed=botaoPerfil_Pressed;
+	 
+	 botaoSocial_Hover = paper.image("images/barra_social_Hover.png",(larguraTela/2)-169,16,78,57);	
+	 botaoSocial_Hover.attr({"opacity": "0.0"});	
+	 botaoSocial = paper.image("images/barra_social.png",(larguraTela/2)-169,16,78,57);
+	 botaoSocial.attr({"opacity": "0.0"});	
+	 botaoSocial_Pressed = paper.image("images/barra_social_Pressed.jpg",(larguraTela/2)-169,16,78,57).hide();	
+
+	 botaoSocial.bhover=botaoSocial_Hover;
+	 botaoSocial.bpressed=botaoSocial_Pressed;	 
+
+	 botaoCat_Hover = paper.image("images/barra_categoria_Hover.jpg",(larguraTela/2)+93,16,78,57);
+	 botaoCat_Hover.attr({"opacity": "0.0"});	 
+	 botaoCat = paper.image("images/barra_categoria.jpg",(larguraTela/2)+93,15,78,59);
+	 botaoCat.attr({"opacity": "0.0"});	
+	 botaoCat_Pressed = paper.image("images/barra_categoria_Pressed.jpg",(larguraTela/2)+93,16,78,57).hide();	
+
+	 botaoCat.bhover=botaoCat_Hover;
+	 botaoCat.bpressed=botaoCat_Pressed;
+
+	 botaoAjuda_Hover = paper.image("images/barra_ajuda_Hover.jpg",(larguraTela/2)+171,16,78,57);
+	 botaoAjuda_Hover.attr({"opacity": "0.0"});	 
+	 botaoAjuda = paper.image("images/barra_ajuda.jpg",(larguraTela/2)+171,16,78,57);
+	 botaoAjuda.attr({"opacity": "0.0"});
+	 botaoAjuda_Pressed = paper.image("images/barra_ajuda_Pressed.jpg",(larguraTela/2)+171,16,78,57).hide();	
+
+	 botaoAjuda.bhover=botaoAjuda_Hover;
+	 botaoAjuda.bpressed=botaoAjuda_Pressed;
+	 	 
+	 desenhaUser();
+
+	//=========  trata botao Perfil  ==========
+	
+	botaoPerfil.hover(function(){ this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); } );
+	botaoPerfil.click(function(evt){
+
+			this.bpressed.show(); // this.show();
+			this.bpressed.animate({"opacity": "0.4"}, 100);
+			this.bpressed.hide();
+
+	});
+	
+    //=========  trata botao Social  ==========
+	
+	botaoSocial.hover(function(){ this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); } );
+	botaoSocial.click(function(evt){
+			this.hide(); this.bpressed.show(); this.bpressed.hide(); this.show();
+
+	});
+
+    //=========  trata botao Categoria  ==========
+	
+	botaoCat.hover(function(){ this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); } );
+	botaoCat.click(function(evt){
+			this.hide(); this.bpressed.show(); this.bpressed.hide(); this.show();
+
+	});	
+    //=========  trata botao Ajuda  ==========
+	
+	botaoAjuda.hover(function(){ this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); } );
+	botaoAjuda.click(function(evt){
+	        window.open("https://www.facebook.com/media/set/?set=a.532728780086295.141936.456956790996828&type=1","Tutorial da Vila Digital","scrollbars=1,resizable=1,height=550,width=800");
+			this.hide(); this.bpressed.show(); this.bpressed.hide(); this.show();
+
+	});		
+	//=========  trata botao Sair  ==========
+		
+	botaoSair.hover(function(){ this.attr({"opacity": "0.0"}); this.bhover.attr({"opacity": "1.0"}); },
+	              function(){  this.bhover.attr({"opacity": "0.0"}); this.attr({"opacity": "1.0"}); } );
+	
+	botaoSair.click(function(evt){
+			this.hide(); this.bpressed.show();
+			//desloga usuario do fb? nop
+			if(statusUser==110) status = -110;
+			else if(statusUser==100) status = -100;
+			
+			setUserData(codUser,"status",statusUser);
+			window.location.replace("http://comdig.info/");
+	});
+	 
+}
+
+function desenhaInferior(){
+     back_Baixo = paper.image("images/back_baixo.png",0,alturaTela-46,larguraTela,46);
+	 rodape = paper.image("images/barra_nua.jpg",13,alturaTela-50,larguraTela-26,26);
+	 roda_esq = paper.image("images/barra_esq.jpg",12,alturaTela-50,87,26);
+	 roda_dir = paper.image("images/barra_dir.jpg",larguraTela-84,alturaTela-50,72,27);
+	 roda_sobre = paper.image("images/barra_sobre.jpg",larguraTela/2-47,alturaTela-50,94,26);
+}
+function refreshInferior(){
+     back_Baixo.attr({x:0 , y:alturaTela-46  , width:larguraTela  , height:46  });
+     back_Baixo.toFront();
+	 
+	 rodape.attr({x:13, y:alturaTela-50  , width:larguraTela-26  , height:26  });
+	 rodape.toFront(); 
+	 
+	 roda_esq.attr({x:12, y:alturaTela-50}); 
+	 roda_esq.toFront(); 
+
+	 roda_dir.attr({x:larguraTela-84, y:alturaTela-50}); 	 
+	 roda_dir.toFront(); 
+	 
+	 roda_sobre.attr({x:larguraTela/2-47, y:alturaTela-50}); 	 
+	 roda_sobre.toFront(); 
+}
+function abreConfig(){
+   config.toFront();
+   config.show();   
+   for(i=1;i<11;i++){ 
+	 catr[i-1].toFront(); catr[i-1].show();
+	 catb[i-1].toFront(); catb[i-1].show();
+	 catn[i-1].toFront(); catn[i-1].show();
+	 //catt[i-1].toFront(); catt[i-1].show();
+	}	
+	
+   xConfig.toFront(); 
+   xConfig.show();
+   if(gameState==1) xConfig.attr({"opacity": "1.0"});
+   if(gameState==2) xConfig.attr({"opacity": "0.1"});   
+	
+}
+function fechaConfig(){
+   config.toBack();
+   config.hide();
+   for(i=1;i<11;i++){
+	 catr[i-1].toBack(); catr[i-1].hide();
+	 catb[i-1].toBack(); catb[i-1].hide();
+	 catn[i-1].toBack(); catn[i-1].hide();
+	 //catt[i-1].toBack(); catt[i-1].hide();
+	}	 
+   xConfig.toBack();
+   xConfig.hide();	
+}
+
+//..........................................................	
+// realiza a carga das diferentes fases do jogo
+//..........................................................	
+function carrega(){
+
+	$.ajax({
+		  url: "state"+gameState+".html",
+		  cache: false,
+		  async:false,
+		  success: function(d) { $("#container1").append(d); }
+		});
+		
+	switch(gameState){	
+	 case 1: iniciaConfiguracao();	break;
+	 case 2: iniciaJogo();	break;
+	}
+}
+
+var paper,backg;
+var alturaTela,larguraTela;
+
+//..........................................................	
+// inicializacao da tela
+//..........................................................
+
+function inicializaTela(){
+
+    if(paper != null) paper.clear();
+
+	//captura dimensoes da tela
+	alturaTela= document.body.clientHeight;
+	if(alturaTela<10) alturaTela= window.innerHeight;
+	larguraTela= document.body.clientWidth;
+	if(larguraTela<10) larguraTela= window.innerWidth;
+		  
+	 paper = Raphael("RaphaelPaper", larguraTela,alturaTela); 	  	 
+	 fonte_NeoSans = paper.getFont("Neo");
+	 
+	 //paperUp.setSize(larguraTela,150);
+	 
+	 raio=250; meioraio=250/2;   
+	 iniX=(larguraTela/2)-raio; iniY=320; //iniY=216;
+	 	 
+	 backg = paper.image("images/background.jpg",0,0,larguraTela,alturaTela);
+ 	 
+	 desenhaInferior();
+	 
+	 //menu lateral esquerdo
+     config = paper.image("images/configuracao.png",10,105,270,465);  
+	 xConfig = paper.rect(242,134,15,15);
+	 xConfig.attr({fill: "#DAB215", stroke:"#DAB215"});
+	 xConfig.click(function(evt) {  fechaConfig(); });
+	 
+	 for(i=1;i<11;i++){
+	
+		catr[i-1] = paper.image("images/cat"+i+"r.png",/*139*/146,220+((i-1)*33),38,31).scale(0.75);  // rss
+		catb[i-1] = paper.image("images/cat"+i+"b.png",/*165*/178,220+((i-1)*33),38,31).scale(0.75);  // blog
+		catn[i-1] = paper.image("images/cat"+i+"n.png",/*191*/210,220+((i-1)*33),38,31).scale(0.75);  // newspapers
+		catt[i-1] = paper.image("images/cat"+i+"t.png",/*217*/250,220+((i-1)*33),38,31).scale(0.75);  // twitter
+		catt[i-1].hide();
+	 }
+
+	//=========  trata as 10 categorias com 4 botoes  ========= 	
+	
+	for(i=1;i<11;i++){
+	  catr[i-1].click(function(evt) { 
+	    var z;
+	     
+         if(areaSelecionada==null) dialogErro("Primeiro selecione a area e depois escolha a categoria..."); //$("#dialog-message").dialog("open"); 
+         else{ console.log("bom:"+ this);
+		 for(z=0;z<10;z++) if(this==catr[z]) { console.log("opa"+z);   catr[z].hide();  
+		                                         if(gameState==1)												 
+												 areaSelecionada.attr({fill: nomeCor[z]});
+												 
+												 if(gameState==1){
+													 for(j=0;j<4;j++)
+													   if(areaSelecionada==arconf[j]) { 
+															if(areaCor[j]<100) {
+															 if(areaTipo[j]==0) catr[areaCor[j]].show();
+															 if(areaTipo[j]==1) catb[areaCor[j]].show();
+															 if(areaTipo[j]==2) catn[areaCor[j]].show();
+															 if(areaTipo[j]==3) catt[areaCor[j]].show();
+															}
+															areaCor[j]=z; areaTipo[j]=0; // rss
+															if((areaCor[0]+areaCor[1]+areaCor[2]+areaCor[3])<100) { botaoOK.hide(); botaoOKh.show(); }
+															//ico_b[j].hide(); ico_n[j].hide(); ico_t[j].hide(); ico_r[j].show();
+															
+															ico[j].attr({'src':'images/cat'+(z+1)+'r.png'});
+															ico[j].show();
+															
+													 }
+												  } else //gameState==2
+												  {
+
+													// INVERTENDO LIN E COL ...
+												    setMatrix(linSelec,colSelec,1,z+1,1,1,0);
+												    //setMat_ed(l,c,valor);
+												    atualizaMatriz(); //no BD
+													trancaZonas();  //tranca se nao houver + zonas liberadas
+												    atualizaFeedsBackground();
+													desenhaCenario_Eds();
+													refreshInferior();
+													refreshSetas();
+												  }
+
+												 
+											 }			
+													
+		 }
+	   
+	  });
+	  catr[i-1].hover(function(){ this.scale(0.8); },
+	                  function(){ this.scale(1.25); } )
+	}
+	for(k=1;k<11;k++){
+      catb[k-1].click(function(evt) {  console.log("aqui"+ k);
+	     var z;  
+         if(areaSelecionada==null) dialogErro("Primeiro selecione a area e depois escolha a categoria..."); //$("#dialog-message").dialog("open");  
+         else
+		 for(z=0;z<10;z++) if(this==catb[z]) {   this.hide();  
+												 if(gameState==1) areaSelecionada.attr({fill: nomeCor[z]});
+												 
+												 if(gameState==1){
+												 for(j=0;j<4;j++) 
+												   if(areaSelecionada==arconf[j]) {
+												         if(areaCor[j]<100) {
+														   if(areaTipo[j]==0) catr[areaCor[j]].show();
+														   if(areaTipo[j]==1) catb[areaCor[j]].show();
+														   if(areaTipo[j]==2) catn[areaCor[j]].show();
+														   if(areaTipo[j]==3) catt[areaCor[j]].show();
+														}
+												         areaCor[j]=z; areaTipo[j]=1; // blog			
+														 if((areaCor[0]+areaCor[1]+areaCor[2]+areaCor[3])<100)  { botaoOK.hide(); botaoOKh.show(); }									   
+												         //ico_t[j].hide(); ico_r[j].hide(); ico_n[j].hide(); ico_b[j].show(); 
+														ico[j].attr({'src':'images/cat'+(z+1)+'b.png'});
+														ico[j].show();
+												   }
+												  }else //gameState==2
+												  {
+
+													// INVERTENDO LIN E COL ...
+												    setMatrix(linSelec,colSelec,1,z+1,2,1,0);
+												    //setMat_ed(l,c,valor);
+												    atualizaMatriz(); //no BD
+													trancaZonas();  //tranca se nao houver + zonas liberadas
+												    atualizaFeedsBackground();
+													desenhaCenario_Eds();
+													refreshInferior();
+													refreshSetas();
+												  }
+
+											 }				
+		 
+	  });
+	  catb[k-1].hover(function(){ this.scale(0.8); },
+	                  function(){ this.scale(1.25); } )	
+	}
+	for(i=1;i<11;i++){
+      catn[i-1].click(function(evt) {
+	     var z; 
+         if(areaSelecionada==null) dialogErro("Primeiro selecione a area e depois escolha a categoria..."); //$("#dialog-message").dialog("open");  
+         else
+		 for(z=0;z<10;z++) if(this==catn[z]) {   this.hide();  
+												 if(gameState==1) areaSelecionada.attr({fill: nomeCor[z]});
+												 
+												 if(gameState==1){
+												 for(j=0;j<4;j++) 
+												   if(areaSelecionada==arconf[j]) {
+												         if(areaCor[j]<100) {
+														   if(areaTipo[j]==0) catr[areaCor[j]].show();
+														   if(areaTipo[j]==1) catb[areaCor[j]].show();
+														   if(areaTipo[j]==2) catn[areaCor[j]].show();
+														   if(areaTipo[j]==3) catt[areaCor[j]].show();
+														}
+												         areaCor[j]=z; areaTipo[j]=2; // news
+														 if((areaCor[0]+areaCor[1]+areaCor[2]+areaCor[3])<100)  { botaoOK.hide(); botaoOKh.show(); }												   
+												         //ico_t[j].hide(); ico_r[j].hide(); ico_b[j].hide(); ico_n[j].show(); 
+														ico[j].attr({'src':'images/cat'+(z+1)+'n.png'});
+														ico[j].show();												   
+												    }
+												   }else //gameState==2
+												  {
+
+													// INVERTENDO LIN E COL ...
+												    setMatrix(linSelec,colSelec,1,z+1,3,1,0);
+												    //setMat_ed(l,c,valor);
+												    atualizaMatriz(); //no BD
+													trancaZonas();  //tranca se nao houver + zonas liberadas
+												    atualizaFeedsBackground();
+													desenhaCenario_Eds();
+													refreshInferior();
+													refreshSetas();
+												  }
+
+											 }				
+		 
+	  });
+	  catn[i-1].hover(function(){ this.scale(0.8); },
+	                  function(){ this.scale(1.25); } )	
+    }
+	for(i=1;i<11;i++){
+      catt[i-1].click(function(evt) { 
+	     var z; 
+         if(areaSelecionada==null) dialogErro("Primeiro selecione a area e depois escolha a categoria..."); //$("#dialog-message").dialog("open");  
+         else
+		 for(z=0;z<10;z++) if(this==catt[z]) {   this.hide();
+		 
+												 if(gameState==1) areaSelecionada.attr({fill: nomeCor[z]});
+												 
+												 if(gameState==1){
+												 for(j=0;j<4;j++) 
+												   if(areaSelecionada==arconf[j]) {
+												         if(areaCor[j]<100) {
+														   if(areaTipo[j]==0) catr[areaCor[j]].show();
+														   if(areaTipo[j]==1) catb[areaCor[j]].show();
+														   if(areaTipo[j]==2) catn[areaCor[j]].show();
+														   if(areaTipo[j]==3) catt[areaCor[j]].show();
+														}
+												         areaCor[j]=z; areaTipo[j]=3; // twitter
+														 if((areaCor[0]+areaCor[1]+areaCor[2]+areaCor[3])<100)  { botaoOK.hide(); botaoOKh.show(); }											   
+												         //ico_n[j].hide(); ico_r[j].hide(); ico_b[j].hide(); ico_t[j].show(); 
+														ico[j].attr({'src':'images/cat'+(z+1)+'t.png'});
+														ico[j].show();														 
+												    }
+												   }else //gameState==2
+												  {
+
+													// INVERTENDO LIN E COL ...
+												    setMatrix(linSelec,colSelec,1,z+1,4,1,0);
+												    //setMat_ed(l,c,valor);
+												    atualizaMatriz(); //no BD
+													trancaZonas();  //tranca se nao houver + zonas liberadas
+												    atualizaFeedsBackground();
+													desenhaCenario_Eds();
+													refreshInferior();
+													refreshSetas();
+												  }
+
+											 }				
+		 
+	  });
+	  catt[i-1].hover(function(){ this.scale(0.8); },
+	                  function(){ this.scale(1.25); } )
+					  
+	}	 
+	 
+     fechaConfig();	 
+	
+}
+
+function redesenhaTudo(){
+
+ if(gameState==2){
+   	alturaTela= document.body.clientHeight;
+	if(alturaTela<10) alturaTela= window.innerHeight;
+	larguraTela= document.body.clientWidth;
+	if(larguraTela<10) larguraTela= window.innerWidth;
+	     pIni = new posic(larguraTela/2,140);  
+         backg.attr({width: larguraTela, height: alturaTela});		 
+  		 limpaCenarios(); 
+		 	 
+			 logo.attr({x:(larguraTela/2)-250 , y:4});
+			 logo.toFront();
+			 logo.show();
+			 
+		 desenhaCenario_Chao();  desenhaCenario_Controles(); desenhaCenario_Eds();
+		 refreshInferior(); /*refreshSuperior();*/
+		 moldura.toFront(); userImg.toFront();
+		 botaoSair_Hover.toFront(); botaoSair.toFront(); botaoSair_Pressed.toFront(); botaoSair.show();
+		 refreshSetas(); 
+ }
+ flagTela=false;
+}
+
+function verificaRedimensionamentoTela(){
+ 
+ 	novaalturaTela= document.body.clientHeight;
+	if(novaalturaTela<10) novaalturaTela= window.innerHeight;
+	novalarguraTela= document.body.clientWidth;
+	if(novalarguraTela<10) novalarguraTela= window.innerWidth;
+	
+	difAltura = novaalturaTela - alturaTela;  difLargura = novalarguraTela - larguraTela;
+	if((difAltura>15 || difAltura < -15 || difLargura >15 || difLargura < -15) && flagTela==false) {
+	   flagTela=true;
+	   timeMsg("redesenhaTudo()",300);
+	}
+ 
+}
+
+window.onresize = function(){
+ //if((temporizador.getTime()-clockInicial)>200){ alert("redim");
+ //  clockInicial = temporizador.getTime();
+   verificaRedimensionamentoTela();
+ //}
+}
+window.onload=function(){
+
+
+ inicializaTela();
+
+ carrega();
+}
+	
+</script>
+<div id="container1"></div>
+<div id="dialog-message" title="Aten&ccedil;&atilde;o">
+  <p><div id="msgerro"></div></p> 
+</div>
+<div id="content">
+    <div id="container">
+	  <div id="RaphaelPaperCabecalho"/><div id="RaphaelPaper"/><div id="RaphaelPaperRodape"/>
+   </div>
+</div>	
+
+<!--
+<div class="fb-like" data-href="https://www.facebook.com/aviladigital" data-send="false" data-width="80" data-show-faces="false"></div> 
+-->
+
+
+</body>
+</html>
