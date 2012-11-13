@@ -90,7 +90,7 @@ function postFB(tit, des, linkimg){
 
 function postRecomendacao(linkPostNews)
   {    
-    //alert(linkPostNews);
+    alert(linkPostNews);
       FB.api(
         '/me/viladigital:recommend',
         'post',
@@ -328,6 +328,12 @@ function desenhaInferior(){
 	 roda_esq = paper.image("images/barra_esq.jpg",12,alturaTela-50,87,26);
 	 roda_dir = paper.image("images/barra_dir.jpg",larguraTela-84,alturaTela-50,72,27);
 	 roda_sobre = paper.image("images/barra_sobre.jpg",larguraTela/2-47,alturaTela-50,94,26);
+	 github = paper.image("images/github.png",larguraTela-120,alturaTela-50,38,27);
+	 
+	 	github.click(function(evt){
+			 window.open("https://github.com/comdig/viladigital.git","Noticia","scrollbars=1,resizable=1,height=500,width=800");
+	});
+	 
 }
 function refreshInferior(){
      back_Baixo.attr({x:0 , y:alturaTela-46  , width:larguraTela  , height:46  });
@@ -344,6 +350,10 @@ function refreshInferior(){
 	 
 	 roda_sobre.attr({x:larguraTela/2-47, y:alturaTela-50}); 	 
 	 roda_sobre.toFront(); 
+	
+	 github.attr({x:larguraTela-84, y:alturaTela-50}); 	 
+	 github.toFront(); 
+	
 }
 function abreConfig(){
    config.toFront();
